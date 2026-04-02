@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "processingAlert": {
+      "title": "Processing Alert",
+      "description": "Represents an alert being processed by the n8n workflow.",
+      "type": "object",
+      "properties": {
+        "alert_id": {
+          "type": "string",
+          "description": "The unique identifier for the alert."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the alert."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current processing status of the alert.",
+          "enum": ["Processing", "Completed", "Failed"]
+        },
+        "current_step": {
+          "type": "string",
+          "description": "The current step in the processing workflow."
+        },
+        "total_steps": {
+          "type": "number",
+          "description": "The total number of steps in the processing workflow."
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when processing started."
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The timestamp when the alert was last updated."
+        }
+      },
+      "required": ["alert_id", "title", "status", "current_step", "started_at", "updated_at"]
+    }
+  },
+  "auth": {
+    "providers": []
+  },
+  "firestore": {
+    "/processing_alerts/{alertId}": {
+      "schema": {
+        "$ref": "#/entities/processingAlert"
+      },
+      "description": "Collection to store real-time processing status of alerts."
+    }
+  }
+}
