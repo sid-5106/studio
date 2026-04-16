@@ -81,7 +81,7 @@ export function InsightsClient({ initialInsights }: { initialInsights: PromptIns
                                             <TableRow>
                                                 <TableHead>Alert Title</TableHead>
                                                 <TableHead>Timestamp</TableHead>
-                                                <TableHead>Refined AI Reason</TableHead>
+                                                <TableHead>Refined Reasons by AI Over Time</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
