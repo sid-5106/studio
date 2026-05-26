@@ -1,7 +1,10 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// Use environment variables, with safe fallbacks to prevent runtime crashes if they are missing.
+// The strings 'https://placeholder.supabase.co' and 'placeholder' are valid URL/key formats
+// that will satisfy the Supabase client initialization requirements without crashing the app.
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 
 // Public client for client-side operations
@@ -13,7 +16,7 @@ let adminClient: SupabaseClient;
 
 // The service key is only available on the server, so we conditionally initialize
 // the admin client. This prevents the app from crashing on the client side.
-if (supabaseServiceKey) {
+if (supabaseServiceKey && supabaseUrl !== 'https://placeholder.supabase.co') {
   adminClient = createClient(supabaseUrl, supabaseServiceKey, {
     auth: {
       autoRefreshToken: false,
@@ -21,9 +24,8 @@ if (supabaseServiceKey) {
     }
   });
 } else {
-  // In a client-side context, supabaseServiceKey will be undefined.
-  // We assign a dummy object to prevent import errors. Client-side code should
-  // never use the admin client anyway; it should use the public `supabase` client.
+  // In a client-side context or if config is missing, we assign a dummy object.
+  // Client-side code should never use the admin client anyway.
   adminClient = {} as SupabaseClient;
 }
 

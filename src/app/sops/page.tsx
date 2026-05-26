@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useRef, FormEvent } from 'react';
@@ -123,6 +124,16 @@ export default function SOPsPage() {
       return;
     }
 
+    const webhookUrl = process.env.NEXT_PUBLIC_SOP_WEBHOOK_URL;
+    if (!webhookUrl) {
+      toast({
+        variant: 'destructive',
+        title: 'Configuration Error',
+        description: 'SOP upload webhook URL is not configured.',
+      });
+      return;
+    }
+
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', selectedFile);
@@ -132,7 +143,7 @@ export default function SOPsPage() {
     formData.append('lastModified', new Date(selectedFile.lastModified).toISOString());
 
     try {
-      const response = await fetch('https://tst-n8n3.app.n8n.cloud/webhook-test/SOP', {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         body: formData,
       });

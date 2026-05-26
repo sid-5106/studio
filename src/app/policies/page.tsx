@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, FormEvent, useRef, useMemo } from 'react';
@@ -103,6 +104,16 @@ export default function PoliciesPage() {
       return;
     }
 
+    const webhookUrl = process.env.NEXT_PUBLIC_POLICY_WEBHOOK_URL;
+    if (!webhookUrl) {
+      toast({
+        variant: 'destructive',
+        title: 'Configuration Error',
+        description: 'Policy upload webhook URL is not configured.',
+      });
+      return;
+    }
+
     setIsUploading(true);
     const formData = new FormData();
     formData.append('file', selectedFile);
@@ -112,7 +123,7 @@ export default function PoliciesPage() {
     formData.append('lastModified', new Date(selectedFile.lastModified).toISOString());
 
     try {
-      const response = await fetch('https://tst-n8n3.app.n8n.cloud/webhook-test/policy', {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         body: formData,
       });
