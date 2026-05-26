@@ -68,12 +68,16 @@ export type PromptInsight = {
   first_seen_at: string;
 };
 
+// Helper to check if a Supabase error is because a table is missing
+const isTableMissingError = (error: any) => {
+  return error && (error.code === '42P01' || error.message?.includes('does not exist'));
+};
+
 export async function checkSupabaseConnection() {
   try {
     const { error } = await supabaseAdmin.from('Policy').select('*', { count: 'exact', head: true });
 
-    if (error && error.code !== '42P01' && error.message !== 'relation "public.Policy" does not exist') {
-      // 42P01 is 'undefined_table'
+    if (error && !isTableMissingError(error)) {
       console.error('Supabase connection check error:', error);
       return { status: 'Inactive' as const };
     }
@@ -86,160 +90,205 @@ export async function checkSupabaseConnection() {
 }
 
 export async function getPolicies(): Promise<Policy[]> {
-  const { data, error } = await supabaseAdmin.from('Policy').select('Policy_ID, Policy_Name, Policy_Description');
+  try {
+    const { data, error } = await supabaseAdmin.from('Policy').select('Policy_ID, Policy_Name, Policy_Description');
 
-  if (error) {
-    console.error('Error fetching policies:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching policies:', error);
+      return [];
+    }
+
+    return data as Policy[];
+  } catch (e) {
     return [];
   }
-
-  return data as Policy[];
 }
 
 export async function getSOPs(): Promise<SOP[]> {
-  const { data, error } = await supabaseAdmin.from('SOP').select('Policy_ID, Policy_Name, SOP');
+  try {
+    const { data, error } = await supabaseAdmin.from('SOP').select('Policy_ID, Policy_Name, SOP');
 
-  if (error) {
-    console.error('Error fetching SOPs:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching SOPs:', error);
+      return [];
+    }
+
+    return data as SOP[];
+  } catch (e) {
     return [];
   }
-
-  return data as SOP[];
 }
 
 export async function getTotalPoliciesCount(): Promise<number> {
-  const { count, error } = await supabaseAdmin.from('Policy').select('*', { count: 'exact', head: true });
+  try {
+    const { count, error } = await supabaseAdmin.from('Policy').select('*', { count: 'exact', head: true });
 
-  if (error) {
-    console.error('Error fetching policies count:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching policies count:', error);
+      return 0;
+    }
+
+    return count ?? 0;
+  } catch (e) {
     return 0;
   }
-
-  return count ?? 0;
 }
 
 export async function getAlerts(): Promise<Alert[]> {
-  const { data, error } = await supabaseAdmin
-    .from('alerts_processed')
-    .select(
-      'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,next_time(whatNotToDoNextTime),Feedback_L1'
-    );
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('alerts_processed')
+      .select(
+        'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,next_time(whatNotToDoNextTime),Feedback_L1'
+      );
 
-  if (error) {
-    console.error('Error fetching alerts:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching alerts:', error);
+      return [];
+    }
+
+    if (!data) return [];
+
+    const alerts = data.map((v: any) => {
+        const { next_time, ...rest } = v;
+        return {
+            ...rest,
+            whatNotToDoNextTime: next_time?.whatNotToDoNextTime ?? ''
+        }
+    });
+
+    return alerts as Alert[];
+  } catch (e) {
     return [];
   }
-
-  if (!data) return [];
-
-  const alerts = data.map((v: any) => {
-      const { next_time, ...rest } = v;
-      return {
-          ...rest,
-          whatNotToDoNextTime: next_time?.whatNotToDoNextTime ?? ''
-      }
-  });
-
-
-  return alerts as Alert[];
 }
 
 export async function getRedundancyData(fingerprint: string): Promise<Redundancy[]> {
   if (!fingerprint) return [];
 
-  const { data, error } = await supabaseAdmin
-    .from('redundancy')
-    .select('Title, policy_name, category, classification, classification_reason, time')
-    .eq('fingerprint', fingerprint);
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('redundancy')
+      .select('Title, policy_name, category, classification, classification_reason, time')
+      .eq('fingerprint', fingerprint);
 
-  if (error) {
-    console.error('Error fetching redundancy data:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching redundancy data:', error);
+      return [];
+    }
+
+    return data as Redundancy[];
+  } catch (e) {
     return [];
   }
-
-  return data as Redundancy[];
 }
 
 export async function getTotalAlertsCount(): Promise<number> {
-  const { count, error } = await supabaseAdmin.from('alerts_processed').select('*', { count: 'exact', head: true });
+  try {
+    const { count, error } = await supabaseAdmin.from('alerts_processed').select('*', { count: 'exact', head: true });
 
-  if (error) {
-    console.error('Error fetching alerts count:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching alerts count:', error);
+      return 0;
+    }
+
+    return count ?? 0;
+  } catch (e) {
     return 0;
   }
-
-  return count ?? 0;
 }
 
 export async function getTotalRedundancyCount(): Promise<number> {
-  const { count, error } = await supabaseAdmin.from('redundancy').select('*', { count: 'exact', head: true });
+  try {
+    const { count, error } = await supabaseAdmin.from('redundancy').select('*', { count: 'exact', head: true });
 
-  if (error) {
-    console.error('Error fetching redundancy count:', error);
+    if (error) {
+      if (!isTableMissingError(error)) {
+        console.error('Error fetching redundancy count:', error);
+      }
+      return 0;
+    }
+
+    return count ?? 0;
+  } catch (e) {
     return 0;
   }
-
-  return count ?? 0;
 }
 
 export async function getFalsePositiveCount(): Promise<number> {
-  const { count, error } = await supabaseAdmin
-    .from('alerts_processed')
-    .select('*', { count: 'exact', head: true })
-    .eq('classification', 'False_Positive');
+  try {
+    const { count, error } = await supabaseAdmin
+      .from('alerts_processed')
+      .select('*', { count: 'exact', head: true })
+      .eq('classification', 'False_Positive');
 
-  if (error) {
-    console.error('Error fetching false positive alerts count:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching false positive alerts count:', error);
+      return 0;
+    }
+
+    return count ?? 0;
+  } catch (e) {
     return 0;
   }
-
-  return count ?? 0;
 }
 
 export async function getFalsePositiveAlerts(): Promise<Alert[]> {
-  const { data, error } = await supabaseAdmin
-    .from('alerts_processed')
-    .select(
-      'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,Feedback_L1'
-    )
-    .eq('classification', 'False_Positive');
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('alerts_processed')
+      .select(
+        'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,Feedback_L1'
+      )
+      .eq('classification', 'False_Positive');
 
-  if (error) {
-    console.error('Error fetching false positive alerts:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching false positive alerts:', error);
+      return [];
+    }
+
+    return data as Alert[];
+  } catch (e) {
     return [];
   }
-
-  return data as Alert[];
 }
 
 export async function getTruePositiveCount(): Promise<number> {
-  const { count, error } = await supabaseAdmin
-    .from('alerts_processed')
-    .select('*', { count: 'exact', head: true })
-    .eq('classification', 'True_Positive');
+  try {
+    const { count, error } = await supabaseAdmin
+      .from('alerts_processed')
+      .select('*', { count: 'exact', head: true })
+      .eq('classification', 'True_Positive');
 
-  if (error) {
-    console.error('Error fetching true positive alerts count:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching true positive alerts count:', error);
+      return 0;
+    }
+
+    return count ?? 0;
+  } catch (e) {
     return 0;
   }
-
-  return count ?? 0;
 }
 
 export async function getTruePositiveAlerts(): Promise<Alert[]> {
-  const { data, error } = await supabaseAdmin
-    .from('alerts_processed')
-    .select(
-      'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,Feedback_L1'
-    )
-    .eq('classification', 'True_Positive');
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('alerts_processed')
+      .select(
+        'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,Feedback_L1'
+      )
+      .eq('classification', 'True_Positive');
 
-  if (error) {
-    console.error('Error fetching true positive alerts:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching true positive alerts:', error);
+      return [];
+    }
+
+    return data as Alert[];
+  } catch (e) {
     return [];
   }
-
-  return data as Alert[];
 }
 
 export async function updateAlertFeedback(fingerprint: string, feedback: string): Promise<{ success: boolean; error?: string }> {
@@ -247,90 +296,110 @@ export async function updateAlertFeedback(fingerprint: string, feedback: string)
     return { success: false, error: 'Fingerprint is required.' };
   }
 
-  const { error } = await supabaseAdmin
-    .from('alerts_processed')
-    .update({ Feedback_L1: feedback })
-    .eq('fingerprint', fingerprint);
+  try {
+    const { error } = await supabaseAdmin
+      .from('alerts_processed')
+      .update({ Feedback_L1: feedback })
+      .eq('fingerprint', fingerprint);
 
-  if (error) {
-    console.error('Error updating feedback:', error);
-    return { success: false, error: error.message };
+    if (error) {
+      console.error('Error updating feedback:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
   }
-
-  return { success: true };
 }
 
 export async function getAlertsSummary(): Promise<AlertSummary[]> {
-  const { data, error } = await supabaseAdmin.from('alerts_processed').select('category,classification');
+  try {
+    const { data, error } = await supabaseAdmin.from('alerts_processed').select('category,classification');
 
-  if (error) {
-    console.error('Error fetching alerts summary:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching alerts summary:', error);
+      return [];
+    }
+
+    if (!data) return [];
+
+    const summaryMap = data.reduce(
+      (acc, { category, classification }) => {
+        if (!category || !classification) return acc;
+        if (!acc[category]) {
+          acc[category] = { category };
+        }
+        const currentCount = acc[category][classification] ? Number(acc[category][classification]) : 0;
+        acc[category][classification] = currentCount + 1;
+        return acc;
+      },
+      {} as Record<string, { category: string; [key: string]: string | number }>
+    );
+
+    return Object.values(summaryMap);
+  } catch (e) {
     return [];
   }
-
-  if (!data) return [];
-
-  const summaryMap = data.reduce(
-    (acc, { category, classification }) => {
-      if (!category || !classification) return acc;
-      if (!acc[category]) {
-        acc[category] = { category };
-      }
-      const currentCount = acc[category][classification] ? Number(acc[category][classification]) : 0;
-      acc[category][classification] = currentCount + 1;
-      return acc;
-    },
-    {} as Record<string, { category: string; [key: string]: string | number }>
-  );
-
-  return Object.values(summaryMap);
 }
 
 export async function getAlertsClassificationSummaryForPieChart(): Promise<ClassificationSummary[]> {
-  const total = await getTotalAlertsCount();
-  const falsePositives = await getFalsePositiveCount();
-  const truePositives = total - falsePositives;
+  try {
+    const total = await getTotalAlertsCount();
+    const falsePositives = await getFalsePositiveCount();
+    const truePositives = Math.max(0, total - falsePositives);
 
-  return [
-    { name: 'True Positive', value: truePositives },
-    { name: 'False Positive', value: falsePositives },
-  ];
+    return [
+      { name: 'True Positive', value: truePositives },
+      { name: 'False Positive', value: falsePositives },
+    ];
+  } catch (e) {
+    return [];
+  }
 }
 
 export async function getTopPolicies(): Promise<TopPolicySummary[]> {
-  const { data, error } = await supabaseAdmin.from('alerts_processed').select('policy_name');
+  try {
+    const { data, error } = await supabaseAdmin.from('alerts_processed').select('policy_name');
 
-  if (error) {
-    console.error('Error fetching alerts for top policies summary:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching alerts for top policies summary:', error);
+      return [];
+    }
+
+    if (!data) return [];
+
+    const summaryMap = data.reduce(
+      (acc, { policy_name }) => {
+        if (!policy_name) return acc;
+        acc[policy_name] = (acc[policy_name] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+    const sorted = Object.entries(summaryMap)
+      .map(([policy_name, count]) => ({ policy_name, count }))
+      .sort((a, b) => b.count - a.count);
+    
+    return sorted.slice(0, 5);
+  } catch (e) {
     return [];
   }
-
-  if (!data) return [];
-
-  const summaryMap = data.reduce(
-    (acc, { policy_name }) => {
-      if (!policy_name) return acc;
-      acc[policy_name] = (acc[policy_name] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
-
-  const sorted = Object.entries(summaryMap)
-    .map(([policy_name, count]) => ({ policy_name, count }))
-    .sort((a, b) => b.count - a.count);
-  
-  return sorted.slice(0, 5);
 }
 
 export async function getAlertsBreakdownSummaryForPieChart(): Promise<ClassificationSummary[]> {
-  const actualAlerts = await getTotalAlertsCount();
-  const redundantAlerts = await getTotalRedundancyCount();
+  try {
+    const actualAlerts = await getTotalAlertsCount();
+    const redundantAlerts = await getTotalRedundancyCount();
 
-  return [
-    { name: 'Actual Alerts', value: actualAlerts },
-    { name: 'Redundant Alerts', value: redundantAlerts },
-  ];
+    return [
+      { name: 'Actual Alerts', value: actualAlerts },
+      { name: 'Redundant Alerts', value: redundantAlerts },
+    ];
+  } catch (e) {
+    return [];
+  }
 }
 
 export type TriggeredPoliciesStats = {
@@ -340,167 +409,183 @@ export type TriggeredPoliciesStats = {
 };
 
 export async function getTriggeredPoliciesStats(days: number): Promise<TriggeredPoliciesStats> {
-  const allPolicies = await getPolicies();
-  const totalPolicies = allPolicies.length;
-  
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startDate = subDays(today, days - 1);
+  try {
+    const allPolicies = await getPolicies();
+    const totalPolicies = allPolicies.length;
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startDate = subDays(today, days - 1);
 
-  const { data: triggeredAlerts, error } = await supabaseAdmin
-    .from('alerts_processed')
-    .select('policy_name, first_seen_at')
-    .gte('first_seen_at', startDate.toISOString())
-    .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+    const { data: triggeredAlerts, error } = await supabaseAdmin
+      .from('alerts_processed')
+      .select('policy_name, first_seen_at')
+      .gte('first_seen_at', startDate.toISOString())
+      .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
 
-  if (error) {
-    console.error(`Error fetching triggered policies for last ${days} days:`, error);
-    return { triggeredCount: 0, notTriggeredCount: totalPolicies, mostTriggered: 'N/A' };
-  }
-  
-  if (!triggeredAlerts) {
-     return { triggeredCount: 0, notTriggeredCount: totalPolicies, mostTriggered: 'N/A' };
-  }
-
-  const triggeredPolicyNames = new Set(triggeredAlerts.map(a => a.policy_name).filter(Boolean));
-  const triggeredCount = triggeredPolicyNames.size;
-  const notTriggeredCount = totalPolicies - triggeredCount;
-  
-  const policyCounts = triggeredAlerts.reduce((acc, { policy_name }) => {
-    if (policy_name) {
-      acc[policy_name] = (acc[policy_name] || 0) + 1;
+    if (error) {
+      if (!isTableMissingError(error)) console.error(`Error fetching triggered policies for last ${days} days:`, error);
+      return { triggeredCount: 0, notTriggeredCount: totalPolicies, mostTriggered: 'N/A' };
     }
-    return acc;
-  }, {} as Record<string, number>);
+    
+    if (!triggeredAlerts) {
+       return { triggeredCount: 0, notTriggeredCount: totalPolicies, mostTriggered: 'N/A' };
+    }
 
-  const mostTriggered = Object.entries(policyCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A';
+    const triggeredPolicyNames = new Set(triggeredAlerts.map(a => a.policy_name).filter(Boolean));
+    const triggeredCount = triggeredPolicyNames.size;
+    const notTriggeredCount = totalPolicies - triggeredCount;
+    
+    const policyCounts = triggeredAlerts.reduce((acc, { policy_name }) => {
+      if (policy_name) {
+        acc[policy_name] = (acc[policy_name] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
 
-  return { triggeredCount, notTriggeredCount, mostTriggered };
+    const mostTriggered = Object.entries(policyCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || 'N/A';
+
+    return { triggeredCount, notTriggeredCount, mostTriggered };
+  } catch (e) {
+    return { triggeredCount: 0, notTriggeredCount: 0, mostTriggered: 'N/A' };
+  }
 }
 
 
 export type DailyPolicyTrend = { date: string; count: number };
 
 export async function getDailyPolicyTrend(days: number): Promise<DailyPolicyTrend[]> {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startDate = subDays(today, days - 1);
+    try {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startDate = subDays(today, days - 1);
 
-    const { data, error } = await supabaseAdmin
-        .from('alerts_processed')
-        .select('first_seen_at, policy_name')
-        .gte('first_seen_at', startDate.toISOString())
-        .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+      const { data, error } = await supabaseAdmin
+          .from('alerts_processed')
+          .select('first_seen_at, policy_name')
+          .gte('first_seen_at', startDate.toISOString())
+          .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
 
-    if (error) {
-        console.error('Error fetching daily policy trend:', error);
-        return [];
+      if (error) {
+          if (!isTableMissingError(error)) console.error('Error fetching daily policy trend:', error);
+          return [];
+      }
+
+      if (!data) return [];
+      
+      const dailyUniquePolicies: Record<string, Set<string>> = {};
+      
+      // Create a map of all dates in the range
+      for (let i = 0; i < days; i++) {
+        const date = subDays(today, i).toISOString().split('T')[0];
+        dailyUniquePolicies[date] = new Set<string>();
+      }
+
+      data.forEach(({ first_seen_at, policy_name }) => {
+          if (!first_seen_at || !policy_name) return;
+          const date = new Date(first_seen_at).toISOString().split('T')[0];
+          if (dailyUniquePolicies[date]) {
+              dailyUniquePolicies[date].add(policy_name);
+          }
+      });
+
+      const trend = Object.entries(dailyUniquePolicies)
+          .map(([date, policies]) => ({
+              date,
+              count: policies.size,
+          }))
+          .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      return trend;
+    } catch (e) {
+      return [];
     }
-
-    if (!data) return [];
-    
-    const dailyUniquePolicies: Record<string, Set<string>> = {};
-    
-    // Create a map of all dates in the range
-    for (let i = 0; i < days; i++) {
-      const date = subDays(today, i).toISOString().split('T')[0];
-      dailyUniquePolicies[date] = new Set<string>();
-    }
-
-    data.forEach(({ first_seen_at, policy_name }) => {
-        if (!first_seen_at || !policy_name) return;
-        const date = new Date(first_seen_at).toISOString().split('T')[0];
-        if (dailyUniquePolicies[date]) {
-            dailyUniquePolicies[date].add(policy_name);
-        }
-    });
-
-    const trend = Object.entries(dailyUniquePolicies)
-        .map(([date, policies]) => ({
-            date,
-            count: policies.size,
-        }))
-        .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    return trend;
 }
 
 export type TopTriggeredPolicy = { policy_name: string, count: number };
 
 export async function getTopTriggeredPolicies(days: number, limit: number = 5): Promise<TopTriggeredPolicy[]> {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startDate = subDays(today, days - 1);
+    try {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startDate = subDays(today, days - 1);
 
-    const { data, error } = await supabaseAdmin
-        .from('alerts_processed')
-        .select('policy_name, first_seen_at')
-        .gte('first_seen_at', startDate.toISOString())
-        .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
-    
-    if (error) {
-        console.error(`Error fetching top triggered policies for last ${days} days:`, error);
-        return [];
-    }
-    
-    if (!data) return [];
-
-    const summaryMap = data.reduce(
-        (acc, { policy_name }) => {
-          if (!policy_name) return acc;
-          acc[policy_name] = (acc[policy_name] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-    );
-    
-    const sorted = Object.entries(summaryMap)
-        .map(([policy_name, count]) => ({ policy_name, count }))
-        .sort((a, b) => b.count - a.count);
+      const { data, error } = await supabaseAdmin
+          .from('alerts_processed')
+          .select('policy_name, first_seen_at')
+          .gte('first_seen_at', startDate.toISOString())
+          .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
       
-    return sorted.slice(0, limit).reverse();
+      if (error) {
+          if (!isTableMissingError(error)) console.error(`Error fetching top triggered policies for last ${days} days:`, error);
+          return [];
+      }
+      
+      if (!data) return [];
+
+      const summaryMap = data.reduce(
+          (acc, { policy_name }) => {
+            if (!policy_name) return acc;
+            acc[policy_name] = (acc[policy_name] || 0) + 1;
+            return acc;
+          },
+          {} as Record<string, number>
+      );
+      
+      const sorted = Object.entries(summaryMap)
+          .map(([policy_name, count]) => ({ policy_name, count }))
+          .sort((a, b) => b.count - a.count);
+        
+      return sorted.slice(0, limit).reverse();
+    } catch (e) {
+      return [];
+    }
 }
 
 export type PolicyEffectivenessScore = { policy_name: string, score: number, true_positives: number, total: number };
 
 export async function getPolicyEffectivenessScores(days: number): Promise<PolicyEffectivenessScore[]> {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startDate = subDays(today, days - 1);
+    try {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startDate = subDays(today, days - 1);
 
-    const { data, error } = await supabaseAdmin
-        .from('alerts_processed')
-        .select('policy_name, classification, first_seen_at')
-        .gte('first_seen_at', startDate.toISOString())
-        .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
-    
-    if (error) {
-        console.error('Error fetching policy effectiveness data:', error);
-        return [];
+      const { data, error } = await supabaseAdmin
+          .from('alerts_processed')
+          .select('policy_name, classification, first_seen_at')
+          .gte('first_seen_at', startDate.toISOString())
+          .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+      
+      if (error) {
+          if (!isTableMissingError(error)) console.error('Error fetching policy effectiveness data:', error);
+          return [];
+      }
+
+      if (!data) return [];
+
+      const policyStats = data.reduce((acc, { policy_name, classification }) => {
+          if (!policy_name) return acc;
+          if (!acc[policy_name]) {
+              acc[policy_name] = { true_positives: 0, total: 0 };
+          }
+          acc[policy_name].total++;
+          if (classification === 'True_Positive') {
+              acc[policy_name].true_positives++;
+          }
+          return acc;
+      }, {} as Record<string, { true_positives: number, total: number }>);
+      
+      const scores = Object.entries(policyStats).map(([policy_name, stats]) => ({
+          policy_name,
+          score: stats.total > 0 ? (stats.true_positives / stats.total) * 100 : 0,
+          true_positives: stats.true_positives,
+          total: stats.total
+      })).sort((a,b) => b.score - a.score);
+
+      return scores;
+    } catch (e) {
+      return [];
     }
-
-    if (!data) return [];
-
-    const policyStats = data.reduce((acc, { policy_name, classification }) => {
-        if (!policy_name) return acc;
-        if (!acc[policy_name]) {
-            acc[policy_name] = { true_positives: 0, total: 0 };
-        }
-        acc[policy_name].total++;
-        if (classification === 'True_Positive') {
-            acc[policy_name].true_positives++;
-        }
-        return acc;
-    }, {} as Record<string, { true_positives: number, total: number }>);
-    
-    const scores = Object.entries(policyStats).map(([policy_name, stats]) => ({
-        policy_name,
-        score: stats.total > 0 ? (stats.true_positives / stats.total) * 100 : 0,
-        true_positives: stats.true_positives,
-        total: stats.total
-    })).sort((a,b) => b.score - a.score);
-
-    return scores;
 }
 
 export type TriggeredPolicyDetail = {
@@ -515,204 +600,224 @@ export type NotTriggeredPolicyDetail = {
 };
 
 export async function getTriggeredPoliciesDetails(days: number): Promise<TriggeredPolicyDetail[]> {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startDate = subDays(today, days - 1);
-  
-  const { data: triggeredAlerts, error: alertsError } = await supabaseAdmin
-    .from('alerts_processed')
-    .select('policy_name, first_seen_at')
-    .gte('first_seen_at', startDate.toISOString())
-    .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+  try {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startDate = subDays(today, days - 1);
+    
+    const { data: triggeredAlerts, error: alertsError } = await supabaseAdmin
+      .from('alerts_processed')
+      .select('policy_name, first_seen_at')
+      .gte('first_seen_at', startDate.toISOString())
+      .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
 
-
-  if (alertsError) {
-    console.error(`Error fetching triggered policies details for last ${days} days:`, alertsError);
-    return [];
-  }
-  if (!triggeredAlerts) return [];
-
-  const lastTriggeredMap = triggeredAlerts.reduce((acc, alert) => {
-    if (alert.policy_name) {
-      const existing = acc[alert.policy_name];
-      if (!existing || new Date(alert.first_seen_at) > new Date(existing)) {
-        acc[alert.policy_name] = alert.first_seen_at;
-      }
+    if (alertsError) {
+      if (!isTableMissingError(alertsError)) console.error(`Error fetching triggered policies details for last ${days} days:`, alertsError);
+      return [];
     }
-    return acc;
-  }, {} as Record<string, string>);
+    if (!triggeredAlerts) return [];
 
-  const triggeredPolicyNames = Object.keys(lastTriggeredMap);
+    const lastTriggeredMap = triggeredAlerts.reduce((acc, alert) => {
+      if (alert.policy_name) {
+        const existing = acc[alert.policy_name];
+        if (!existing || new Date(alert.first_seen_at) > new Date(existing)) {
+          acc[alert.policy_name] = alert.first_seen_at;
+        }
+      }
+      return acc;
+    }, {} as Record<string, string>);
 
-  if (triggeredPolicyNames.length === 0) return [];
+    const triggeredPolicyNames = Object.keys(lastTriggeredMap);
 
-  const { data: policies, error: policiesError } = await supabaseAdmin
-    .from('Policy')
-    .select('Policy_Name, Policy_Description')
-    .in('Policy_Name', triggeredPolicyNames);
+    if (triggeredPolicyNames.length === 0) return [];
 
-  if (policiesError) {
-    console.error('Error fetching policy descriptions for triggered policies:', policiesError);
+    const { data: policies, error: policiesError } = await supabaseAdmin
+      .from('Policy')
+      .select('Policy_Name, Policy_Description')
+      .in('Policy_Name', triggeredPolicyNames);
+
+    if (policiesError) {
+      if (!isTableMissingError(policiesError)) console.error('Error fetching policy descriptions for triggered policies:', policiesError);
+      return [];
+    }
+
+    if (!policies) return [];
+
+    return policies.map(p => ({
+      policy_name: p.Policy_Name,
+      description: p.Policy_Description,
+      last_triggered_at: lastTriggeredMap[p.Policy_Name]
+    })).sort((a,b) => new Date(b.last_triggered_at).getTime() - new Date(a.last_triggered_at).getTime());
+  } catch (e) {
     return [];
   }
-
-  if (!policies) return [];
-
-  return policies.map(p => ({
-    policy_name: p.Policy_Name,
-    description: p.Policy_Description,
-    last_triggered_at: lastTriggeredMap[p.Policy_Name]
-  })).sort((a,b) => new Date(b.last_triggered_at).getTime() - new Date(a.last_triggered_at).getTime());
 }
 
 
 export async function getNotTriggeredPoliciesDetails(days: number): Promise<NotTriggeredPolicyDetail[]> {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startDate = subDays(today, days - 1);
+  try {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startDate = subDays(today, days - 1);
 
-  const { data: allPolicies, error: allPoliciesError } = await supabaseAdmin
-    .from('Policy')
-    .select('Policy_Name, Policy_Description');
+    const { data: allPolicies, error: allPoliciesError } = await supabaseAdmin
+      .from('Policy')
+      .select('Policy_Name, Policy_Description');
 
-  if (allPoliciesError) {
-    console.error('Error fetching all policies:', allPoliciesError);
+    if (allPoliciesError) {
+      if (!isTableMissingError(allPoliciesError)) console.error('Error fetching all policies:', allPoliciesError);
+      return [];
+    }
+    if (!allPolicies) return [];
+
+    const { data: triggeredAlerts, error: alertsError } = await supabaseAdmin
+      .from('alerts_processed')
+      .select('policy_name, first_seen_at')
+      .gte('first_seen_at', startDate.toISOString())
+      .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+    
+    if (alertsError && !isTableMissingError(alertsError)) {
+      console.error(`Error fetching triggered policy names for last ${days} days:`, alertsError);
+    }
+
+    const triggeredPolicyNames = new Set(triggeredAlerts?.map(a => a.policy_name).filter(Boolean) || []);
+
+    const notTriggeredPolicies = allPolicies.filter(p => !triggeredPolicyNames.has(p.Policy_Name));
+
+    return notTriggeredPolicies.map(p => ({
+      policy_name: p.Policy_Name,
+      description: p.Policy_Description
+    }));
+  } catch (e) {
     return [];
   }
-  if (!allPolicies) return [];
-
-  const { data: triggeredAlerts, error: alertsError } = await supabaseAdmin
-    .from('alerts_processed')
-    .select('policy_name, first_seen_at')
-    .gte('first_seen_at', startDate.toISOString())
-    .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
-  
-  if (alertsError) {
-    console.error(`Error fetching triggered policy names for last ${days} days:`, alertsError);
-  }
-
-  const triggeredPolicyNames = new Set(triggeredAlerts?.map(a => a.policy_name).filter(Boolean) || []);
-
-  const notTriggeredPolicies = allPolicies.filter(p => !triggeredPolicyNames.has(p.Policy_Name));
-
-  return notTriggeredPolicies.map(p => ({
-    policy_name: p.Policy_Name,
-    description: p.Policy_Description
-  }));
 }
 
 export type EffectivenessTrendPoint = { date: string; score: number };
 
 export async function getOverallEffectivenessTrend(days: number): Promise<EffectivenessTrendPoint[]> {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startDate = subDays(today, days - 1);
+    try {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startDate = subDays(today, days - 1);
 
-    const { data, error } = await supabaseAdmin
-        .from('alerts_processed')
-        .select('first_seen_at, classification')
-        .gte('first_seen_at', startDate.toISOString())
-        .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+      const { data, error } = await supabaseAdmin
+          .from('alerts_processed')
+          .select('first_seen_at, classification')
+          .gte('first_seen_at', startDate.toISOString())
+          .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
 
-    if (error) {
-        console.error('Error fetching overall effectiveness trend:', error);
-        return [];
+      if (error) {
+          if (!isTableMissingError(error)) console.error('Error fetching overall effectiveness trend:', error);
+          return [];
+      }
+
+      if (!data) return [];
+      
+      const dailyStats: Record<string, { truePositives: number, total: number }> = {};
+      
+      for (let i = 0; i < days; i++) {
+          const date = subDays(today, i).toISOString().split('T')[0];
+          dailyStats[date] = { truePositives: 0, total: 0 };
+      }
+
+      data.forEach(({ first_seen_at, classification }) => {
+          if (!first_seen_at || !classification) return;
+          const date = new Date(first_seen_at).toISOString().split('T')[0];
+          if (dailyStats[date]) {
+              dailyStats[date].total++;
+              if (classification === 'True_Positive') {
+                  dailyStats[date].truePositives++;
+              }
+          }
+      });
+
+      const trend = Object.entries(dailyStats)
+          .map(([date, stats]) => ({
+              date,
+              score: stats.total > 0 ? Math.round((stats.truePositives / stats.total) * 100) : 0,
+          }))
+          .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      return trend;
+    } catch (e) {
+      return [];
     }
-
-    if (!data) return [];
-    
-    const dailyStats: Record<string, { true_positives: number, total: number }> = {};
-    
-    for (let i = 0; i < days; i++) {
-        const date = subDays(today, i).toISOString().split('T')[0];
-        dailyStats[date] = { true_positives: 0, total: 0 };
-    }
-
-    data.forEach(({ first_seen_at, classification }) => {
-        if (!first_seen_at || !classification) return;
-        const date = new Date(first_seen_at).toISOString().split('T')[0];
-        if (dailyStats[date]) {
-            dailyStats[date].total++;
-            if (classification === 'True_Positive') {
-                dailyStats[date].true_positives++;
-            }
-        }
-    });
-
-    const trend = Object.entries(dailyStats)
-        .map(([date, stats]) => ({
-            date,
-            score: stats.total > 0 ? Math.round((stats.true_positives / stats.total) * 100) : 0,
-        }))
-        .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    return trend;
 }
 
 export type AlertTrendPoint = { date: string; 'True Positives': number; 'False Positives': number };
 
 export async function getAlertsTrend(days: number): Promise<AlertTrendPoint[]> {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const startDate = subDays(today, days - 1);
+    try {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const startDate = subDays(today, days - 1);
 
-    const { data, error } = await supabaseAdmin
-        .from('alerts_processed')
-        .select('first_seen_at, classification')
-        .gte('first_seen_at', startDate.toISOString())
-        .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+      const { data, error } = await supabaseAdmin
+          .from('alerts_processed')
+          .select('first_seen_at, classification')
+          .gte('first_seen_at', startDate.toISOString())
+          .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
 
 
-    if (error) {
-        console.error('Error fetching alerts trend:', error);
-        return [];
+      if (error) {
+          if (!isTableMissingError(error)) console.error('Error fetching alerts trend:', error);
+          return [];
+      }
+
+      if (!data) return [];
+      
+      const dailyStats: Record<string, { 'True Positives': number, 'False Positives': number }> = {};
+
+      for (let i = 0; i < days; i++) {
+        const date = subDays(today, i).toISOString().split('T')[0];
+        dailyStats[date] = { 'True Positives': 0, 'False Positives': 0 };
+      }
+
+      data.forEach(({ first_seen_at, classification }) => {
+          if (!first_seen_at || !classification) return;
+          const date = new Date(first_seen_at).toISOString().split('T')[0];
+          if (dailyStats[date]) {
+              if (classification === 'True_Positive') {
+                  dailyStats[date]['True Positives']++;
+              } else if (classification === 'False_Positive') {
+                  dailyStats[date]['False Positives']++;
+              }
+          }
+      });
+
+      return Object.entries(dailyStats)
+          .map(([date, counts]) => ({ date, ...counts }))
+          .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    } catch (e) {
+      return [];
     }
-
-    if (!data) return [];
-    
-    const dailyStats: Record<string, { 'True Positives': number, 'False Positives': number }> = {};
-
-    for (let i = 0; i < days; i++) {
-      const date = subDays(today, i).toISOString().split('T')[0];
-      dailyStats[date] = { 'True Positives': 0, 'False Positives': 0 };
-    }
-
-    data.forEach(({ first_seen_at, classification }) => {
-        if (!first_seen_at || !classification) return;
-        const date = new Date(first_seen_at).toISOString().split('T')[0];
-        if (dailyStats[date]) {
-            if (classification === 'True_Positive') {
-                dailyStats[date]['True Positives']++;
-            } else if (classification === 'False_Positive') {
-                dailyStats[date]['False Positives']++;
-            }
-        }
-    });
-
-    return Object.entries(dailyStats)
-        .map(([date, counts]) => ({ date, ...counts }))
-        .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
 export async function getUserBehaviorSummary(): Promise<UserBehaviorPoint[]> {
-  const { data, error } = await supabaseAdmin
-    .from('alerts_processed')
-    .select('behavior')
-    .eq('classification', 'True_Positive')
-    .not('email_sender', 'is', null);
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('alerts_processed')
+      .select('behavior')
+      .eq('classification', 'True_Positive')
+      .not('email_sender', 'is', null);
 
-  if (error || !data) {
-    console.error('Error fetching behavior summary:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching behavior summary:', error);
+      return [];
+    }
+    if (!data) return [];
+
+    const behaviorCounts = data.reduce((acc, alert) => {
+      const behavior = alert.behavior || 'Unknown';
+      acc[behavior] = (acc[behavior] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(behaviorCounts).map(([name, value]) => ({ name, value }));
+  } catch (e) {
     return [];
   }
-
-  const behaviorCounts = data.reduce((acc, alert) => {
-    const behavior = alert.behavior || 'Unknown';
-    acc[behavior] = (acc[behavior] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  return Object.entries(behaviorCounts).map(([name, value]) => ({ name, value }));
 }
 
 
@@ -746,187 +851,207 @@ export type UserBehaviorPoint = {
 };
 
 export async function getTotalRiskyUsersCount(): Promise<number> {
-    const { count, error } = await supabaseAdmin.from('risky_users').select('*', { count: 'exact', head: true });
-    if (error) {
-        console.error('Error fetching total risky users count:', error);
-        return 0;
+    try {
+      const { count, error } = await supabaseAdmin.from('risky_users').select('*', { count: 'exact', head: true });
+      if (error) {
+          if (!isTableMissingError(error)) console.error('Error fetching total risky users count:', error);
+          return 0;
+      }
+      return count ?? 0;
+    } catch (e) {
+      return 0;
     }
-    return count ?? 0;
 }
 
 export async function getHighRiskUsersCount(): Promise<number> {
-    const { data, error } = await supabaseAdmin.from('risky_users').select('evidence_p1Sender_emailAddress', { count: 'exact' }).gte('risk_count', 6);
-    if (error) {
-        console.error('Error fetching high risk users count:', error);
-        return 0;
+    try {
+      const { data, error } = await supabaseAdmin.from('risky_users').select('evidence_p1Sender_emailAddress', { count: 'exact' }).gte('risk_count', 6);
+      if (error) {
+          if (!isTableMissingError(error)) console.error('Error fetching high risk users count:', error);
+          return 0;
+      }
+      return data?.length ?? 0;
+    } catch (e) {
+      return 0;
     }
-    return data?.length ?? 0;
 }
 
 export async function getNewRiskyUsersCount(): Promise<number> {
-    const { data: riskyUsers, error: riskyUsersError } = await supabaseAdmin
-        .from('risky_users')
-        .select('evidence_p1Sender_emailAddress');
-    
-    if (riskyUsersError || !riskyUsers || riskyUsers.length === 0) {
-        return 0;
+    try {
+      const { data: riskyUsers, error: riskyUsersError } = await supabaseAdmin
+          .from('risky_users')
+          .select('evidence_p1Sender_emailAddress');
+      
+      if (riskyUsersError || !riskyUsers || riskyUsers.length === 0) {
+          return 0;
+      }
+      const riskyUserEmails = riskyUsers.map(u => u.evidence_p1Sender_emailAddress).filter(Boolean);
+
+      const { data, error } = await supabaseAdmin
+          .from('alerts_processed')
+          .select('email_sender, created_at')
+          .eq('classification', 'True_Positive')
+          .in('email_sender', riskyUserEmails);
+          
+      if (error || !data) return 0;
+
+      const firstViolations = data.reduce((acc, alert) => {
+          if (!alert.email_sender) return acc;
+          if (!acc[alert.email_sender] || new Date(alert.created_at) < new Date(acc[alert.email_sender])) {
+              acc[alert.email_sender] = alert.created_at;
+          }
+          return acc;
+      }, {} as Record<string, string>);
+
+      const sevenDaysAgoDate = subDays(new Date(), 7);
+      const newUsers = Object.values(firstViolations).filter(date => new Date(date) >= sevenDaysAgoDate);
+      
+      return newUsers.length;
+    } catch (e) {
+      return 0;
     }
-    const riskyUserEmails = riskyUsers.map(u => u.evidence_p1Sender_emailAddress).filter(Boolean);
-
-    const { data, error } = await supabaseAdmin
-        .from('alerts_processed')
-        .select('email_sender, created_at')
-        .eq('classification', 'True_Positive')
-        .in('email_sender', riskyUserEmails);
-        
-    if (error || !data) return 0;
-
-    const firstViolations = data.reduce((acc, alert) => {
-        if (!alert.email_sender) return acc;
-        if (!acc[alert.email_sender] || new Date(alert.created_at) < new Date(acc[alert.email_sender])) {
-            acc[alert.email_sender] = alert.created_at;
-        }
-        return acc;
-    }, {} as Record<string, string>);
-
-    const sevenDaysAgoDate = subDays(new Date(), 7);
-    const newUsers = Object.values(firstViolations).filter(date => new Date(date) >= sevenDaysAgoDate);
-    
-    return newUsers.length;
 }
 
 export async function getEscalatingUsersCount(): Promise<number> {
-    const { data: riskyUsers, error: riskyUsersError } = await supabaseAdmin
-        .from('risky_users')
-        .select('evidence_p1Sender_emailAddress');
+    try {
+      const { data: riskyUsers, error: riskyUsersError } = await supabaseAdmin
+          .from('risky_users')
+          .select('evidence_p1Sender_emailAddress');
 
-    if (riskyUsersError || !riskyUsers || !riskyUsers.length) {
-        return 0;
-    }
-    const riskyUserEmails = riskyUsers.map(u => u.evidence_p1Sender_emailAddress).filter(Boolean);
+      if (riskyUsersError || !riskyUsers || !riskyUsers.length) {
+          return 0;
+      }
+      const riskyUserEmails = riskyUsers.map(u => u.evidence_p1Sender_emailAddress).filter(Boolean);
 
-    const fourteenDaysAgo = subDays(new Date(), 14).toISOString();
-    const sevenDaysAgo = subDays(new Date(), 7).toISOString();
-    
-    const { data: alerts, error } = await supabaseAdmin
-        .from('alerts_processed')
-        .select('email_sender, created_at')
-        .eq('classification', 'True_Positive')
-        .gte('created_at', fourteenDaysAgo)
-        .in('email_sender', riskyUserEmails);
-    
-    if (error || !alerts) {
-        console.error('Error fetching alerts for escalating users:', error);
-        return 0;
-    }
+      const fourteenDaysAgo = subDays(new Date(), 14).toISOString();
+      const sevenDaysAgo = subDays(new Date(), 7).toISOString();
+      
+      const { data: alerts, error } = await supabaseAdmin
+          .from('alerts_processed')
+          .select('email_sender, created_at')
+          .eq('classification', 'True_Positive')
+          .gte('created_at', fourteenDaysAgo)
+          .in('email_sender', riskyUserEmails);
+      
+      if (error || !alerts) {
+          if (error && !isTableMissingError(error)) console.error('Error fetching alerts for escalating users:', error);
+          return 0;
+      }
 
-    const userViolations = alerts.reduce((acc, alert) => {
-        if (!alert.email_sender) return acc;
-        if (!acc[alert.email_sender]) {
-            acc[alert.email_sender] = { recent: 0, previous: 0 };
-        }
-        if (new Date(alert.created_at) >= new Date(sevenDaysAgo)) {
-            acc[alert.email_sender].recent++;
-        } else {
-            acc[alert.email_sender].previous++;
-        }
-        return acc;
-    }, {} as Record<string, { recent: number; previous: number }>);
-    
-    let escalatingUsersCount = 0;
-    for (const user in userViolations) {
-        if (userViolations[user].recent > userViolations[user].previous) {
-            escalatingUsersCount++;
-        }
+      const userViolations = alerts.reduce((acc, alert) => {
+          if (!alert.email_sender) return acc;
+          if (!acc[alert.email_sender]) {
+              acc[alert.email_sender] = { recent: 0, previous: 0 };
+          }
+          if (new Date(alert.created_at) >= new Date(sevenDaysAgo)) {
+              acc[alert.email_sender].recent++;
+          } else {
+              acc[alert.email_sender].previous++;
+          }
+          return acc;
+      }, {} as Record<string, { recent: number; previous: number }>);
+      
+      let escalatingUsersCount = 0;
+      for (const user in userViolations) {
+          if (userViolations[user].recent > userViolations[user].previous) {
+              escalatingUsersCount++;
+          }
+      }
+      
+      return escalatingUsersCount;
+    } catch (e) {
+      return 0;
     }
-    
-    return escalatingUsersCount;
 }
 
 export async function getRiskyUsersDetails(): Promise<RiskyUserDetail[]> {
-    const { data: riskyUsers, error: riskyUsersError } = await supabaseAdmin
-        .from('risky_users')
-        .select('evidence_p1Sender_emailAddress, risk_count');
+    try {
+      const { data: riskyUsers, error: riskyUsersError } = await supabaseAdmin
+          .from('risky_users')
+          .select('evidence_p1Sender_emailAddress, risk_count');
 
-    if (riskyUsersError || !riskyUsers) {
-        console.error('Error fetching risky users:', riskyUsersError);
-        return [];
+      if (riskyUsersError || !riskyUsers) {
+          if (riskyUsersError && !isTableMissingError(riskyUsersError)) console.error('Error fetching risky users:', riskyUsersError);
+          return [];
+      }
+
+      const { data: alerts, error: alertsError } = await supabaseAdmin
+          .from('alerts_processed')
+          .select('email_sender, created_at')
+          .eq('classification', 'True_Positive');
+      
+      if (alertsError || !alerts) {
+          if (alertsError && !isTableMissingError(alertsError)) console.error('Error fetching alerts:', alertsError);
+          return [];
+      }
+      
+      const fourteenDaysAgo = subDays(new Date(), 14);
+      const sevenDaysAgo = subDays(new Date(), 7);
+
+      const userStats = alerts.reduce((acc, alert) => {
+          const user = alert.email_sender;
+          if (!user) return acc;
+          
+          if (!acc[user]) {
+              acc[user] = {
+                  first_violation: alert.created_at,
+                  last_violation: alert.created_at,
+                  recent_violations: 0,
+                  previous_violations: 0,
+              };
+          }
+          
+          const alertDate = new Date(alert.created_at);
+          if (alertDate < new Date(acc[user].first_violation)) {
+              acc[user].first_violation = alert.created_at;
+          }
+          if (alertDate > new Date(acc[user].last_violation)) {
+              acc[user].last_violation = alert.created_at;
+          }
+          
+          if (alertDate >= sevenDaysAgo) {
+              acc[user].recent_violations++;
+          } else if (alertDate >= fourteenDaysAgo) {
+              acc[user].previous_violations++;
+          }
+          
+          return acc;
+      }, {} as Record<string, {first_violation: string, last_violation: string, recent_violations: number, previous_violations: number}>);
+
+      return riskyUsers.map(user => {
+          const email = user.evidence_p1Sender_emailAddress;
+          if(!email) return null;
+          const stats = userStats[email];
+          const risk_count = user.risk_count;
+
+          let risk_level: 'High' | 'Medium' | 'Low';
+          if (risk_count >= 6) risk_level = 'High';
+          else if (risk_count >= 3) risk_level = 'Medium';
+          else risk_level = 'Low';
+
+          let trend: 'Increasing' | 'Decreasing' | 'Stable';
+          if (!stats) {
+              trend = 'Stable';
+          } else if (stats.recent_violations > stats.previous_violations) {
+              trend = 'Increasing';
+          } else if (stats.recent_violations < stats.previous_violations) {
+              trend = 'Decreasing';
+          } else {
+              trend = 'Stable';
+          }
+
+          return {
+              email: email,
+              risk_count: risk_count,
+              risk_level,
+              first_violation: stats ? stats.first_violation : 'N/A',
+              last_violation: stats ? stats.last_violation : 'N/A',
+              trend,
+          };
+      }).filter(Boolean) as RiskyUserDetail[];
+    } catch (e) {
+      return [];
     }
-
-    const { data: alerts, error: alertsError } = await supabaseAdmin
-        .from('alerts_processed')
-        .select('email_sender, created_at')
-        .eq('classification', 'True_Positive');
-    
-    if (alertsError || !alerts) {
-        console.error('Error fetching alerts:', alertsError);
-        return [];
-    }
-    
-    const fourteenDaysAgo = subDays(new Date(), 14);
-    const sevenDaysAgo = subDays(new Date(), 7);
-
-    const userStats = alerts.reduce((acc, alert) => {
-        const user = alert.email_sender;
-        if (!user) return acc;
-        
-        if (!acc[user]) {
-            acc[user] = {
-                first_violation: alert.created_at,
-                last_violation: alert.created_at,
-                recent_violations: 0,
-                previous_violations: 0,
-            };
-        }
-        
-        const alertDate = new Date(alert.created_at);
-        if (alertDate < new Date(acc[user].first_violation)) {
-            acc[user].first_violation = alert.created_at;
-        }
-        if (alertDate > new Date(acc[user].last_violation)) {
-            acc[user].last_violation = alert.created_at;
-        }
-        
-        if (alertDate >= sevenDaysAgo) {
-            acc[user].recent_violations++;
-        } else if (alertDate >= fourteenDaysAgo) {
-            acc[user].previous_violations++;
-        }
-        
-        return acc;
-    }, {} as Record<string, {first_violation: string, last_violation: string, recent_violations: number, previous_violations: number}>);
-
-    return riskyUsers.map(user => {
-        const email = user.evidence_p1Sender_emailAddress;
-        if(!email) return null;
-        const stats = userStats[email];
-        const risk_count = user.risk_count;
-
-        let risk_level: 'High' | 'Medium' | 'Low';
-        if (risk_count >= 6) risk_level = 'High';
-        else if (risk_count >= 3) risk_level = 'Medium';
-        else risk_level = 'Low';
-
-        let trend: 'Increasing' | 'Decreasing' | 'Stable';
-        if (!stats) {
-            trend = 'Stable';
-        } else if (stats.recent_violations > stats.previous_violations) {
-            trend = 'Increasing';
-        } else if (stats.recent_violations < stats.previous_violations) {
-            trend = 'Decreasing';
-        } else {
-            trend = 'Stable';
-        }
-
-        return {
-            email: email,
-            risk_count: risk_count,
-            risk_level,
-            first_violation: stats ? stats.first_violation : 'N/A',
-            last_violation: stats ? stats.last_violation : 'N/A',
-            trend,
-        };
-    }).filter(Boolean) as RiskyUserDetail[];
 }
 
 export async function getUserViolations(email: string): Promise<UserViolation[]> {
@@ -948,8 +1073,8 @@ export async function getUserViolations(email: string): Promise<UserViolation[]>
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error(`Error fetching violations for user ${email}:`, error);
-      throw error;
+      if (!isTableMissingError(error)) console.error(`Error fetching violations for user ${email}:`, error);
+      return [];
     }
 
     if (!data || data.length === 0) {
@@ -965,91 +1090,102 @@ export async function getUserViolations(email: string): Promise<UserViolation[]>
       whatNotToDoNextTime: v.next_time?.whatNotToDoNextTime ?? 'N/A',
     }));
   } catch (err) {
-    console.error(`Unexpected error in getUserViolations for ${email}:`, err);
     return [];
   }
 }
 
 export async function getUserViolationTrend(email: string): Promise<UserViolationTrendPoint[]> {
-    const { data, error } = await supabaseAdmin
-      .from('alerts_processed')
-      .select('created_at')
-      .eq('classification', 'True_Positive')
-      .eq('email_sender', email);
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('alerts_processed')
+        .select('created_at')
+        .eq('classification', 'True_Positive')
+        .eq('email_sender', email);
 
-    if (error || !data) {
-        console.error('Error fetching violation trend:', error);
-        return [];
+      if (error || !data) {
+          if (error && !isTableMissingError(error)) console.error('Error fetching violation trend:', error);
+          return [];
+      }
+
+      const dailyCounts = data.reduce((acc, alert) => {
+          const date = new Date(alert.created_at).toISOString().split('T')[0];
+          acc[date] = (acc[date] || 0) + 1;
+          return acc;
+      }, {} as Record<string, number>);
+
+      return Object.entries(dailyCounts).map(([date, count]) => ({ date, count })).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    } catch (e) {
+      return [];
     }
-
-    const dailyCounts = data.reduce((acc, alert) => {
-        const date = new Date(alert.created_at).toISOString().split('T')[0];
-        acc[date] = (acc[date] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-
-    return Object.entries(dailyCounts).map(([date, count]) => ({ date, count })).sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
 export async function getUserBehaviorDistribution(email: string): Promise<UserBehaviorPoint[]> {
-    const { data, error } = await supabaseAdmin
-      .from('alerts_processed')
-      .select('behavior')
-      .eq('classification', 'True_Positive')
-      .eq('email_sender', email);
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('alerts_processed')
+        .select('behavior')
+        .eq('classification', 'True_Positive')
+        .eq('email_sender', email);
 
-    if (error || !data) {
-        console.error('Error fetching behavior distribution:', error);
-        return [];
+      if (error || !data) {
+          if (error && !isTableMissingError(error)) console.error('Error fetching behavior distribution:', error);
+          return [];
+      }
+
+      const behaviorCounts = data.reduce((acc, alert) => {
+          const behavior = alert.behavior || 'Unknown';
+          acc[behavior] = (acc[behavior] || 0) + 1;
+          return acc;
+      }, {} as Record<string, number>);
+
+      return Object.entries(behaviorCounts).map(([name, value]) => ({ name, value }));
+    } catch (e) {
+      return [];
     }
-
-    const behaviorCounts = data.reduce((acc, alert) => {
-        const behavior = alert.behavior || 'Unknown';
-        acc[behavior] = (acc[behavior] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-
-    return Object.entries(behaviorCounts).map(([name, value]) => ({ name, value }));
 }
 
 export async function getMostViolatedPoliciesByRiskyUsers(): Promise<TopPolicySummary[]> {
-  const { data: riskyUsers, error: riskyUsersError } = await supabaseAdmin
-    .from('risky_users')
-    .select('evidence_p1Sender_emailAddress');
-  
-  if (riskyUsersError || !riskyUsers) {
+  try {
+    const { data: riskyUsers, error: riskyUsersError } = await supabaseAdmin
+      .from('risky_users')
+      .select('evidence_p1Sender_emailAddress');
+    
+    if (riskyUsersError || !riskyUsers) {
+      return [];
+    }
+    const riskyUserEmails = riskyUsers.map(u => u.evidence_p1Sender_emailAddress).filter(Boolean);
+
+    if (riskyUserEmails.length === 0) {
+      return [];
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('alerts_processed')
+      .select('policy_name')
+      .eq('classification', 'True_Positive')
+      .in('email_sender', riskyUserEmails);
+
+    if (error || !data) {
+      if (error && !isTableMissingError(error)) console.error('Error fetching most violated policies:', error);
+      return [];
+    }
+    
+    const summaryMap = data.reduce(
+      (acc, { policy_name }) => {
+        if (!policy_name) return acc;
+        acc[policy_name] = (acc[policy_name] || 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+    return Object.entries(summaryMap)
+      .map(([policy_name, count]) => ({ policy_name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  } catch (e) {
     return [];
   }
-  const riskyUserEmails = riskyUsers.map(u => u.evidence_p1Sender_emailAddress).filter(Boolean);
-
-  if (riskyUserEmails.length === 0) {
-    return [];
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from('alerts_processed')
-    .select('policy_name')
-    .eq('classification', 'True_Positive')
-    .in('email_sender', riskyUserEmails);
-
-  if (error || !data) {
-    console.error('Error fetching most violated policies:', error);
-    return [];
-  }
-  
-  const summaryMap = data.reduce(
-    (acc, { policy_name }) => {
-      if (!policy_name) return acc;
-      acc[policy_name] = (acc[policy_name] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
-
-  return Object.entries(summaryMap)
-    .map(([policy_name, count]) => ({ policy_name, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
 }
 
 export type UserDistributionSummary = {
@@ -1058,23 +1194,27 @@ export type UserDistributionSummary = {
 };
 
 export async function getRiskyUsersDistribution(): Promise<UserDistributionSummary[]> {
-  const { data: allAlerts, error: alertsError } = await supabaseAdmin
-    .from('alerts_processed')
-    .select('email_sender');
+  try {
+    const { data: allAlerts, error: alertsError } = await supabaseAdmin
+      .from('alerts_processed')
+      .select('email_sender');
 
-  if (alertsError) {
-    console.error('Error fetching users from alerts:', alertsError);
+    if (alertsError) {
+      if (!isTableMissingError(alertsError)) console.error('Error fetching users from alerts:', alertsError);
+      return [];
+    }
+
+    const totalUsers = new Set(allAlerts?.map(a => a.email_sender).filter(Boolean) || []).size;
+    const riskyUsersCount = await getTotalRiskyUsersCount();
+    const nonRiskyUsersCount = Math.max(0, totalUsers - riskyUsersCount);
+
+    return [
+      { name: 'Risky Users', value: riskyUsersCount },
+      { name: 'Non-Risky Users', value: nonRiskyUsersCount },
+    ];
+  } catch (e) {
     return [];
   }
-
-  const totalUsers = new Set(allAlerts?.map(a => a.email_sender).filter(Boolean) || []).size;
-  const riskyUsersCount = await getTotalRiskyUsersCount();
-  const nonRiskyUsersCount = totalUsers - riskyUsersCount;
-
-  return [
-    { name: 'Risky Users', value: riskyUsersCount },
-    { name: 'Non-Risky Users', value: nonRiskyUsersCount > 0 ? nonRiskyUsersCount : 0 },
-  ];
 }
 
 export type NonRiskyUserDetail = {
@@ -1083,39 +1223,43 @@ export type NonRiskyUserDetail = {
 };
 
 export async function getNonRiskyUsersDetails(): Promise<NonRiskyUserDetail[]> {
-  const { data: riskyUsers, error: riskyUsersError } = await supabaseAdmin
-    .from('risky_users')
-    .select('evidence_p1Sender_emailAddress');
+  try {
+    const { data: riskyUsers, error: riskyUsersError } = await supabaseAdmin
+      .from('risky_users')
+      .select('evidence_p1Sender_emailAddress');
 
-  if (riskyUsersError) {
-    console.error('Error fetching risky users emails:', riskyUsersError);
-    return [];
-  }
-  const riskyUserEmails = new Set(riskyUsers.map(u => u.evidence_p1Sender_emailAddress).filter(Boolean));
-
-  const { data: alerts, error: alertsError } = await supabaseAdmin
-    .from('alerts_processed')
-    .select('email_sender');
-
-  if (alertsError || !alerts) {
-    console.error('Error fetching alerts for non-risky users:', alertsError);
-    return [];
-  }
-
-  const allUserAlerts = alerts.reduce((acc, alert) => {
-    if (alert.email_sender && !riskyUserEmails.has(alert.email_sender)) {
-      if (!acc[alert.email_sender]) {
-        acc[alert.email_sender] = 0;
-      }
-      acc[alert.email_sender]++;
+    if (riskyUsersError) {
+      if (!isTableMissingError(riskyUsersError)) console.error('Error fetching risky users emails:', riskyUsersError);
+      return [];
     }
-    return acc;
-  }, {} as Record<string, number>);
+    const riskyUserEmails = new Set(riskyUsers.map(u => u.evidence_p1Sender_emailAddress).filter(Boolean));
 
-  return Object.entries(allUserAlerts).map(([email, total_alerts]) => ({
-    email,
-    total_alerts
-  })).sort((a,b) => b.total_alerts - a.total_alerts);
+    const { data: alerts, error: alertsError } = await supabaseAdmin
+      .from('alerts_processed')
+      .select('email_sender');
+
+    if (alertsError || !alerts) {
+      if (alertsError && !isTableMissingError(alertsError)) console.error('Error fetching alerts for non-risky users:', alertsError);
+      return [];
+    }
+
+    const allUserAlerts = alerts.reduce((acc, alert) => {
+      if (alert.email_sender && !riskyUserEmails.has(alert.email_sender)) {
+        if (!acc[alert.email_sender]) {
+          acc[alert.email_sender] = 0;
+        }
+        acc[alert.email_sender]++;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(allUserAlerts).map(([email, total_alerts]) => ({
+      email,
+      total_alerts
+    })).sort((a,b) => b.total_alerts - a.total_alerts);
+  } catch (e) {
+    return [];
+  }
 }
 
 // AI Usage Analytics
@@ -1130,27 +1274,30 @@ export type AIAnalyticsData = {
 };
 
 export async function getAIAnalyticsData(): Promise<AIAnalyticsData[]> {
-  const { data, error } = await supabaseAdmin
-    .from('alerts_processed')
-    .select('Title, policy_name, total_tokens: "Total Tokens", cost_estimation: "Cost Estimation for Tokens", first_seen_at, classification, email_sender');
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('alerts_processed')
+      .select('Title, policy_name, total_tokens: "Total Tokens", cost_estimation: "Cost Estimation for Tokens", first_seen_at, classification, email_sender');
 
-  if (error) {
-    console.error('Error fetching AI analytics data:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching AI analytics data:', error);
+      return [];
+    }
+    
+    if (!data) {
+      return [];
+    }
+
+    const mappedData = data.map(d => ({
+      ...d,
+      total_tokens: Number(d.total_tokens) || 0,
+      cost_estimation: Number(d.cost_estimation) || 0,
+    }));
+
+    return mappedData.filter(d => d.total_tokens != null && d.cost_estimation != null) as AIAnalyticsData[];
+  } catch (e) {
     return [];
   }
-  
-  if (!data) {
-    return [];
-  }
-
-  const mappedData = data.map(d => ({
-    ...d,
-    total_tokens: Number(d.total_tokens) || 0,
-    cost_estimation: Number(d.cost_estimation) || 0,
-  }));
-
-  // Filter out entries where AI data might be missing to prevent calculation errors
-  return mappedData.filter(d => d.total_tokens != null && d.cost_estimation != null) as AIAnalyticsData[];
 }
 
 // AI Efficiency Analytics
@@ -1160,15 +1307,19 @@ export type EfficiencyAlert = {
 };
 
 export async function getEfficiencyAlerts(): Promise<EfficiencyAlert[]> {
-  const { data, error } = await supabaseAdmin
-    .from('alerts_processed')
-    .select('classification, first_seen_at');
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('alerts_processed')
+      .select('classification, first_seen_at');
 
-  if (error) {
-    console.error('Error fetching efficiency alerts:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching efficiency alerts:', error);
+      return [];
+    }
+    return data as EfficiencyAlert[];
+  } catch (e) {
     return [];
   }
-  return data as EfficiencyAlert[];
 }
 
 export type AIEfficiencyData = {
@@ -1186,81 +1337,92 @@ export async function getAIEfficiencyData(): Promise<AIEfficiencyData> {
   const AI_TIME_FALSE_POSITIVE_SECONDS = 42.5;
   const AI_TIME_REDUNDANT_SECONDS = 6.5;
 
-  const [
-    truePositiveCount,
-    falsePositiveCount,
-    redundantCount,
-    efficiencyAlerts,
-  ] = await Promise.all([
-    getTruePositiveCount(),
-    getFalsePositiveCount(),
-    getTotalRedundancyCount(),
-    getEfficiencyAlerts(),
-  ]);
+  try {
+    const [
+      truePositiveCount,
+      falsePositiveCount,
+      redundantCount,
+      efficiencyAlerts,
+    ] = await Promise.all([
+      getTruePositiveCount(),
+      getFalsePositiveCount(),
+      getTotalRedundancyCount(),
+      getEfficiencyAlerts(),
+    ]);
 
-  const aiTimeForTruePositives = truePositiveCount * AI_TIME_TRUE_POSITIVE_SECONDS;
-  const aiTimeForFalsePositives = falsePositiveCount * AI_TIME_FALSE_POSITIVE_SECONDS;
-  const aiTimeForRedundant = redundantCount * AI_TIME_REDUNDANT_SECONDS;
+    const aiTimeForTruePositives = truePositiveCount * AI_TIME_TRUE_POSITIVE_SECONDS;
+    const aiTimeForFalsePositives = falsePositiveCount * AI_TIME_FALSE_POSITIVE_SECONDS;
+    const aiTimeForRedundant = redundantCount * AI_TIME_REDUNDANT_SECONDS;
 
-  const totalAITimeSeconds = aiTimeForTruePositives + aiTimeForFalsePositives + aiTimeForRedundant;
-  
-  const totalAlerts = truePositiveCount + falsePositiveCount + redundantCount;
-  const totalManualTimeSeconds = totalAlerts * MANUAL_TIME_PER_ALERT_SECONDS;
-  const totalTimeSavedSeconds = totalManualTimeSeconds - totalAITimeSeconds;
+    const totalAITimeSeconds = aiTimeForTruePositives + aiTimeForFalsePositives + aiTimeForRedundant;
+    
+    const totalAlerts = truePositiveCount + falsePositiveCount + redundantCount;
+    const totalManualTimeSeconds = totalAlerts * MANUAL_TIME_PER_ALERT_SECONDS;
+    const totalTimeSavedSeconds = Math.max(0, totalManualTimeSeconds - totalAITimeSeconds);
 
-  const aiTimeBreakdown = [
-    { name: 'True Positives', value: aiTimeForTruePositives },
-    { name: 'False Positives', value: aiTimeForFalsePositives },
-    { name: 'Redundant Alerts', value: aiTimeForRedundant },
-  ];
+    const aiTimeBreakdown = [
+      { name: 'True Positives', value: aiTimeForTruePositives },
+      { name: 'False Positives', value: aiTimeForFalsePositives },
+      { name: 'Redundant Alerts', value: aiTimeForRedundant },
+    ];
 
-  // Cumulative Trend Calculation
-  const dailyData: Record<string, { truePositives: number, falsePositives: number }> = {};
-  efficiencyAlerts.forEach(alert => {
-    if (!alert.first_seen_at) return;
-    const date = new Date(alert.first_seen_at).toISOString().split('T')[0];
-    if (!dailyData[date]) {
-      dailyData[date] = { truePositives: 0, falsePositives: 0 };
-    }
-    if (alert.classification === 'True_Positive') {
-      dailyData[date].truePositives++;
-    } else if (alert.classification === 'False_Positive') {
-      dailyData[date].falsePositives++;
-    }
-  });
+    // Cumulative Trend Calculation
+    const dailyData: Record<string, { truePositives: number, falsePositives: number }> = {};
+    efficiencyAlerts.forEach(alert => {
+      if (!alert.first_seen_at) return;
+      const date = new Date(alert.first_seen_at).toISOString().split('T')[0];
+      if (!dailyData[date]) {
+        dailyData[date] = { truePositives: 0, falsePositives: 0 };
+      }
+      if (alert.classification === 'True_Positive') {
+        dailyData[date].truePositives++;
+      } else if (alert.classification === 'False_Positive') {
+        dailyData[date].falsePositives++;
+      }
+    });
 
-  const totalProcessedAlerts = truePositiveCount + falsePositiveCount;
-  const redundantRatio = totalProcessedAlerts > 0 ? redundantCount / totalProcessedAlerts : 0;
+    const totalProcessedAlerts = truePositiveCount + falsePositiveCount;
+    const redundantRatio = totalProcessedAlerts > 0 ? redundantCount / totalProcessedAlerts : 0;
 
-  const sortedDates = Object.keys(dailyData).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
-  let cumulativeHoursSaved = 0;
-  const cumulativeTimeSavedTrend = sortedDates.map(date => {
-      const dailyProcessed = dailyData[date].truePositives + dailyData[date].falsePositives;
-      const dailyRedundant = Math.round(dailyProcessed * redundantRatio);
-      
-      const dailyAITime = (dailyData[date].truePositives * AI_TIME_TRUE_POSITIVE_SECONDS) +
-                          (dailyData[date].falsePositives * AI_TIME_FALSE_POSITIVE_SECONDS) +
-                          (dailyRedundant * AI_TIME_REDUNDANT_SECONDS);
+    const sortedDates = Object.keys(dailyData).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
+    let cumulativeHoursSaved = 0;
+    const cumulativeTimeSavedTrend = sortedDates.map(date => {
+        const dailyProcessed = dailyData[date].truePositives + dailyData[date].falsePositives;
+        const dailyRedundant = Math.round(dailyProcessed * redundantRatio);
+        
+        const dailyAITime = (dailyData[date].truePositives * AI_TIME_TRUE_POSITIVE_SECONDS) +
+                            (dailyData[date].falsePositives * AI_TIME_FALSE_POSITIVE_SECONDS) +
+                            (dailyRedundant * AI_TIME_REDUNDANT_SECONDS);
 
-      const dailyManualTime = (dailyProcessed + dailyRedundant) * MANUAL_TIME_PER_ALERT_SECONDS;
-      
-      const dailyTimeSaved = dailyManualTime - dailyAITime;
-      cumulativeHoursSaved += dailyTimeSaved / 3600;
+        const dailyManualTime = (dailyProcessed + dailyRedundant) * MANUAL_TIME_PER_ALERT_SECONDS;
+        
+        const dailyTimeSaved = Math.max(0, dailyManualTime - dailyAITime);
+        cumulativeHoursSaved += dailyTimeSaved / 3600;
 
-      return {
-          date,
-          hoursSaved: parseFloat(cumulativeHoursSaved.toFixed(2))
-      };
-  });
-  
-  return {
-    totalAITimeSeconds,
-    totalManualTimeSeconds,
-    totalTimeSavedSeconds,
-    totalAlerts,
-    aiTimeBreakdown,
-    cumulativeTimeSavedTrend,
-  };
+        return {
+            date,
+            hoursSaved: parseFloat(cumulativeHoursSaved.toFixed(2))
+        };
+    });
+    
+    return {
+      totalAITimeSeconds,
+      totalManualTimeSeconds,
+      totalTimeSavedSeconds,
+      totalAlerts,
+      aiTimeBreakdown,
+      cumulativeTimeSavedTrend,
+    };
+  } catch (e) {
+    return {
+      totalAITimeSeconds: 0,
+      totalManualTimeSeconds: 0,
+      totalTimeSavedSeconds: 0,
+      totalAlerts: 0,
+      aiTimeBreakdown: [],
+      cumulativeTimeSavedTrend: [],
+    };
+  }
 }
 
 export type ProcessedAlertsTrendPoint = {
@@ -1272,61 +1434,62 @@ export async function getProcessedAlertsTrendLastHour(): Promise<ProcessedAlerts
   const oneHourAgo = new Date();
   oneHourAgo.setHours(oneHourAgo.getHours() - 1);
 
-  const { data, error } = await supabaseAdmin
-    .from('processing_alerts')
-    .select('updated_at, status')
-    .gte('updated_at', oneHourAgo.toISOString())
-    .in('status', ['Completed', 'completed', 'Failed', 'failed']);
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('processing_alerts')
+      .select('updated_at, status')
+      .gte('updated_at', oneHourAgo.toISOString())
+      .in('status', ['Completed', 'completed', 'Failed', 'failed']);
 
-  if (error) {
-    // Gracefully handle if table doesn't exist
-    if (error.code !== '42P01') {
-      console.error('Error fetching processed alerts trend:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching processed alerts trend:', error);
+      return [];
     }
+
+    if (!data) return [];
+
+    // Create 6 buckets for the last hour, in 10-minute intervals
+    const now = new Date();
+    const buckets = Array.from({ length: 6 }, (_, i) => {
+        const bucketTime = new Date(now.getTime() - i * 10 * 60 * 1000);
+        bucketTime.setSeconds(0,0);
+        const minutes = bucketTime.getMinutes();
+        bucketTime.setMinutes(Math.floor(minutes/10) * 10);
+        return { time: bucketTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), count: 0, date: bucketTime };
+    }).reverse();
+
+    data.forEach(alert => {
+      const alertTime = new Date(alert.updated_at);
+      
+      // Find which bucket this alert belongs to
+      for(let i = buckets.length - 1; i >= 0; i--) {
+          if(alertTime >= buckets[i].date) {
+              buckets[i].count++;
+              break;
+          }
+      }
+    });
+
+    return buckets.map(({time, count}) => ({time, count}));
+  } catch (e) {
     return [];
   }
-
-  if (!data) return [];
-
-  // Create 6 buckets for the last hour, in 10-minute intervals
-  const now = new Date();
-  const buckets = Array.from({ length: 6 }, (_, i) => {
-      const bucketTime = new Date(now.getTime() - i * 10 * 60 * 1000);
-      bucketTime.setSeconds(0,0);
-      const minutes = bucketTime.getMinutes();
-      bucketTime.setMinutes(Math.floor(minutes/10) * 10);
-      return { time: bucketTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), count: 0, date: bucketTime };
-  }).reverse();
-
-  data.forEach(alert => {
-    const alertTime = new Date(alert.updated_at);
-    
-    // Find which bucket this alert belongs to
-    for(let i = buckets.length - 1; i >= 0; i--) {
-        if(alertTime >= buckets[i].date) {
-            buckets[i].count++;
-            break;
-        }
-    }
-  });
-
-  return buckets.map(({time, count}) => ({time, count}));
 }
 
 export async function getPromptLibraryInsights(): Promise<PromptInsight[]> {
-  // Fetches alerts that have been re-processed by the AI after incorporating L1 feedback.
-  const { data, error } = await supabaseAdmin
-    .from('alerts_processed')
-    .select('policy_name, Title, classification_reason, first_seen_at')
-    .eq('feedback_referral', 'yes');
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('alerts_processed')
+      .select('policy_name, Title, classification_reason, first_seen_at')
+      .eq('feedback_referral', 'yes');
 
-  if (error) {
-    // Gracefully handle if column doesn't exist, to prevent crashes before migration
-    if (error.code !== '42703') { // 42703: undefined_column
-      console.error('Error fetching prompt library insights:', error);
+    if (error) {
+      if (!isTableMissingError(error)) console.error('Error fetching prompt library insights:', error);
+      return [];
     }
+
+    return data as PromptInsight[];
+  } catch (e) {
     return [];
   }
-
-  return data as PromptInsight[];
 }
