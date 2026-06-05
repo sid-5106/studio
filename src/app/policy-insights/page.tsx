@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect, useMemo, FC } from 'react';
 import Link from 'next/link';
 import { AppLayout } from '@/components/app-layout';
@@ -803,5 +805,3 @@ const NoDataPlaceholder = () => (
         </div>
     </div>
 );
-
-    

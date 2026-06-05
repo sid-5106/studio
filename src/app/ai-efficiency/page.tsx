@@ -1,4 +1,4 @@
-
+export const dynamic = 'force-dynamic';
 
 import { AppLayout } from '@/components/app-layout';
 import { SupabaseStatus } from '@/components/supabase-status';
@@ -86,5 +86,3 @@ export default async function AIEfficiencyPage() {
     </AppLayout>
   );
 }
-
-    

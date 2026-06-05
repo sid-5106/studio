@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 
 import { getAlerts } from '@/app/actions';
 import { AppLayout } from '@/components/app-layout';
