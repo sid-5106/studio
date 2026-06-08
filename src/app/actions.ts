@@ -135,18 +135,30 @@ export async function getTotalPoliciesCount(): Promise<number> {
 
 export async function getAlerts(): Promise<Alert[]> {
   noStore();
+  let allAlerts: any[] = [];
+  let from = 0;
+  const batchSize = 1000;
+
   try {
-    const { data } = await supabaseAdmin
-      .from('alerts_processed')
-      .select(
-        'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,next_time(whatNotToDoNextTime),Feedback_L1'
-      )
-      .limit(50000)
-      .throwOnError();
+    while (true) {
+      const { data, error } = await supabaseAdmin
+        .from('alerts_processed')
+        .select(
+          'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,next_time(whatNotToDoNextTime),Feedback_L1'
+        )
+        .range(from, from + batchSize - 1);
 
-    if (!data) return [];
+      if (error) throw error;
+      if (!data || data.length === 0) break;
 
-    const alerts = data.map((v: any) => {
+      allAlerts.push(...data);
+      if (data.length < batchSize) break;
+      from += batchSize;
+    }
+
+    console.log("Total alerts loaded from Supabase:", allAlerts.length);
+
+    const alerts = allAlerts.map((v: any) => {
         const { next_time, ...rest } = v;
         return {
             ...rest,
@@ -229,17 +241,29 @@ export async function getFalsePositiveCount(): Promise<number> {
 
 export async function getFalsePositiveAlerts(): Promise<Alert[]> {
   noStore();
-  try {
-    const { data } = await supabaseAdmin
-      .from('alerts_processed')
-      .select(
-        'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,Feedback_L1'
-      )
-      .eq('classification', 'False_Positive')
-      .limit(50000)
-      .throwOnError();
+  let allAlerts: any[] = [];
+  let from = 0;
+  const batchSize = 1000;
 
-    return (data as Alert[]) || [];
+  try {
+    while (true) {
+      const { data, error } = await supabaseAdmin
+        .from('alerts_processed')
+        .select(
+          'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,Feedback_L1'
+        )
+        .eq('classification', 'False_Positive')
+        .range(from, from + batchSize - 1);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      allAlerts.push(...data);
+      if (data.length < batchSize) break;
+      from += batchSize;
+    }
+
+    return allAlerts as Alert[];
   } catch (e: any) {
     if (!isTableMissingError(e)) console.error('Error fetching false positive alerts:', e);
     return [];
@@ -264,17 +288,29 @@ export async function getTruePositiveCount(): Promise<number> {
 
 export async function getTruePositiveAlerts(): Promise<Alert[]> {
   noStore();
-  try {
-    const { data } = await supabaseAdmin
-      .from('alerts_processed')
-      .select(
-        'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,Feedback_L1'
-      )
-      .eq('classification', 'True_Positive')
-      .limit(50000)
-      .throwOnError();
+  let allAlerts: any[] = [];
+  let from = 0;
+  const batchSize = 1000;
 
-    return (data as Alert[]) || [];
+  try {
+    while (true) {
+      const { data, error } = await supabaseAdmin
+        .from('alerts_processed')
+        .select(
+          'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,Feedback_L1'
+        )
+        .eq('classification', 'True_Positive')
+        .range(from, from + batchSize - 1);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      allAlerts.push(...data);
+      if (data.length < batchSize) break;
+      from += batchSize;
+    }
+
+    return allAlerts as Alert[];
   } catch (e: any) {
     if (!isTableMissingError(e)) console.error('Error fetching true positive alerts:', e);
     return [];
@@ -302,15 +338,25 @@ export async function updateAlertFeedback(fingerprint: string, feedback: string)
 
 export async function getAlertsSummary(): Promise<AlertSummary[]> {
   noStore();
+  let allData: any[] = [];
+  let from = 0;
+  const batchSize = 1000;
+
   try {
-    const { data } = await supabaseAdmin
-      .from('alerts_processed')
-      .select('category,classification')
-      .throwOnError();
+    while (true) {
+        const { data, error } = await supabaseAdmin
+        .from('alerts_processed')
+        .select('category,classification')
+        .range(from, from + batchSize - 1);
 
-    if (!data) return [];
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData.push(...data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+    }
 
-    const summaryMap = data.reduce(
+    const summaryMap = allData.reduce(
       (acc, { category, classification }) => {
         if (!category || !classification) return acc;
         if (!acc[category]) {
@@ -343,15 +389,25 @@ export async function getAlertsClassificationSummaryForPieChart(): Promise<Class
 
 export async function getTopPolicies(): Promise<TopPolicySummary[]> {
   noStore();
+  let allData: any[] = [];
+  let from = 0;
+  const batchSize = 1000;
+
   try {
-    const { data } = await supabaseAdmin
-      .from('alerts_processed')
-      .select('policy_name')
-      .throwOnError();
+    while (true) {
+        const { data, error } = await supabaseAdmin
+        .from('alerts_processed')
+        .select('policy_name')
+        .range(from, from + batchSize - 1);
 
-    if (!data) return [];
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData.push(...data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+    }
 
-    const summaryMap = data.reduce(
+    const summaryMap = allData.reduce(
       (acc, { policy_name }) => {
         if (!policy_name) return acc;
         acc[policy_name] = (acc[policy_name] || 0) + 1;
@@ -394,22 +450,33 @@ export async function getTriggeredPoliciesStats(days: number): Promise<Triggered
     const totalPolicies = allPolicies.length;
     
     const now = new Date();
-    const today = startOfDay(now);
-    const startDate = subDays(today, days - 1);
     const endDate = endOfDay(now);
 
-    const query = supabaseAdmin
-      .from('alerts_processed')
-      .select('policy_name, first_seen_at');
+    let triggeredAlerts: any[] = [];
+    let from = 0;
+    const batchSize = 1000;
 
-    if (days > 0) {
-      query.gte('first_seen_at', startDate.toISOString())
-           .lte('first_seen_at', endDate.toISOString());
+    while (true) {
+        const query = supabaseAdmin
+            .from('alerts_processed')
+            .select('policy_name, first_seen_at')
+            .lte('first_seen_at', endDate.toISOString())
+            .range(from, from + batchSize - 1);
+
+        if (days > 0) {
+            const startDate = startOfDay(subDays(now, days - 1));
+            query.gte('first_seen_at', startDate.toISOString());
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        triggeredAlerts.push(...data);
+        if (data.length < batchSize) break;
+        from += batchSize;
     }
-
-    const { data: triggeredAlerts } = await query.throwOnError();
     
-    if (!triggeredAlerts) {
+    if (triggeredAlerts.length === 0) {
        return { triggeredCount: 0, notTriggeredCount: totalPolicies, mostTriggered: 'N/A' };
     }
 
@@ -441,21 +508,33 @@ export async function getDailyPolicyTrend(days: number): Promise<DailyPolicyTren
     try {
       const now = new Date();
       const today = startOfDay(now);
-      const startDate = subDays(today, days - 1);
       const endDate = endOfDay(now);
 
-      const query = supabaseAdmin
-          .from('alerts_processed')
-          .select('first_seen_at, policy_name');
+      let triggeredAlerts: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
 
-      if (days > 0) {
-        query.gte('first_seen_at', startDate.toISOString())
-             .lte('first_seen_at', endDate.toISOString());
+      while (true) {
+          const query = supabaseAdmin
+              .from('alerts_processed')
+              .select('first_seen_at, policy_name')
+              .lte('first_seen_at', endDate.toISOString())
+              .range(from, from + batchSize - 1);
+
+          if (days > 0) {
+            const startDate = subDays(today, days - 1);
+            query.gte('first_seen_at', startDate.toISOString());
+          }
+
+          const { data, error } = await query;
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          triggeredAlerts.push(...data);
+          if (data.length < batchSize) break;
+          from += batchSize;
       }
 
-      const { data } = await query.throwOnError();
-
-      if (!data) return [];
+      if (triggeredAlerts.length === 0) return [];
       
       const dailyUniquePolicies: Record<string, Set<string>> = {};
       
@@ -466,7 +545,7 @@ export async function getDailyPolicyTrend(days: number): Promise<DailyPolicyTren
         }
       }
 
-      data.forEach(({ first_seen_at, policy_name }) => {
+      triggeredAlerts.forEach(({ first_seen_at, policy_name }) => {
           if (!first_seen_at || !policy_name) return;
           const date = new Date(first_seen_at).toISOString().split('T')[0];
           if (days === 0 && !dailyUniquePolicies[date]) {
@@ -498,23 +577,35 @@ export async function getTopTriggeredPolicies(days: number, limit: number = 5): 
     try {
       const now = new Date();
       const today = startOfDay(now);
-      const startDate = subDays(today, days - 1);
       const endDate = endOfDay(now);
 
-      const query = supabaseAdmin
-          .from('alerts_processed')
-          .select('policy_name, first_seen_at');
+      let triggeredAlerts: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
 
-      if (days > 0) {
-        query.gte('first_seen_at', startDate.toISOString())
-             .lte('first_seen_at', endDate.toISOString());
+      while (true) {
+          const query = supabaseAdmin
+              .from('alerts_processed')
+              .select('policy_name, first_seen_at')
+              .lte('first_seen_at', endDate.toISOString())
+              .range(from, from + batchSize - 1);
+
+          if (days > 0) {
+            const startDate = subDays(today, days - 1);
+            query.gte('first_seen_at', startDate.toISOString());
+          }
+
+          const { data, error } = await query;
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          triggeredAlerts.push(...data);
+          if (data.length < batchSize) break;
+          from += batchSize;
       }
-
-      const { data } = await query.throwOnError();
       
-      if (!data) return [];
+      if (triggeredAlerts.length === 0) return [];
 
-      const summaryMap = data.reduce(
+      const summaryMap = triggeredAlerts.reduce(
           (acc, { policy_name }) => {
             if (!policy_name) return acc;
             acc[policy_name] = (acc[policy_name] || 0) + 1;
@@ -541,23 +632,36 @@ export async function getPolicyEffectivenessScores(days: number): Promise<Policy
     try {
       const now = new Date();
       const today = startOfDay(now);
-      const startDate = subDays(today, days - 1);
       const endDate = endOfDay(now);
 
-      const query = supabaseAdmin
-          .from('alerts_processed')
-          .select('policy_name, classification, first_seen_at');
+      let triggeredAlerts: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
 
-      if (days > 0) {
-        query.gte('first_seen_at', startDate.toISOString())
-             .lte('first_seen_at', endDate.toISOString());
+      while (true) {
+          const query = supabaseAdmin
+              .from('alerts_processed')
+              .select('policy_name, classification, first_seen_at')
+              .lte('first_seen_at', endDate.toISOString())
+              .range(from, from + batchSize - 1);
+
+          if (days > 0) {
+            const startDate = subDays(today, days - 1);
+            query.gte('first_seen_at', startDate.toISOString());
+          }
+
+          const { data, error } = await query;
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          triggeredAlerts.push(...data);
+          if (data.length < batchSize) break;
+          from += batchSize;
       }
-
-      const { data } = await query.throwOnError();
       
-      if (!data) return [];
+      if (triggeredAlerts.length === 0) return [];
 
-      const policyStats = data.reduce((acc, { policy_name, classification }) => {
+      const policyStats = triggeredAlerts.reduce((acc, alert) => {
+          const { policy_name, classification } = alert;
           if (!policy_name) return acc;
           if (!acc[policy_name]) {
               acc[policy_name] = { true_positives: 0, total: 0 };
@@ -599,21 +703,33 @@ export async function getTriggeredPoliciesDetails(days: number): Promise<Trigger
   try {
     const now = new Date();
     const today = startOfDay(now);
-    const startDate = subDays(today, days - 1);
     const endDate = endOfDay(now);
     
-    const query = supabaseAdmin
-      .from('alerts_processed')
-      .select('policy_name, first_seen_at');
+    let triggeredAlerts: any[] = [];
+    let from = 0;
+    const batchSize = 1000;
 
-    if (days > 0) {
-      query.gte('first_seen_at', startDate.toISOString())
-           .lte('first_seen_at', endDate.toISOString());
+    while (true) {
+        const query = supabaseAdmin
+            .from('alerts_processed')
+            .select('policy_name, first_seen_at')
+            .lte('first_seen_at', endDate.toISOString())
+            .range(from, from + batchSize - 1);
+
+        if (days > 0) {
+            const startDate = subDays(today, days - 1);
+            query.gte('first_seen_at', startDate.toISOString());
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        triggeredAlerts.push(...data);
+        if (data.length < batchSize) break;
+        from += batchSize;
     }
 
-    const { data: triggeredAlerts } = await query.throwOnError();
-
-    if (!triggeredAlerts) return [];
+    if (triggeredAlerts.length === 0) return [];
 
     const lastTriggeredMap = triggeredAlerts.reduce((acc, alert) => {
       if (alert.policy_name) {
@@ -654,7 +770,6 @@ export async function getNotTriggeredPoliciesDetails(days: number): Promise<NotT
   try {
     const now = new Date();
     const today = startOfDay(now);
-    const startDate = subDays(today, days - 1);
     const endDate = endOfDay(now);
 
     const { data: allPolicies } = await supabaseAdmin
@@ -664,16 +779,29 @@ export async function getNotTriggeredPoliciesDetails(days: number): Promise<NotT
 
     if (!allPolicies) return [];
 
-    const query = supabaseAdmin
-      .from('alerts_processed')
-      .select('policy_name, first_seen_at');
+    let triggeredAlerts: any[] = [];
+    let from = 0;
+    const batchSize = 1000;
 
-    if (days > 0) {
-      query.gte('first_seen_at', startDate.toISOString())
-           .lte('first_seen_at', endDate.toISOString());
+    while (true) {
+        const query = supabaseAdmin
+            .from('alerts_processed')
+            .select('policy_name, first_seen_at')
+            .lte('first_seen_at', endDate.toISOString())
+            .range(from, from + batchSize - 1);
+
+        if (days > 0) {
+            const startDate = subDays(today, days - 1);
+            query.gte('first_seen_at', startDate.toISOString());
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        triggeredAlerts.push(...data);
+        if (data.length < batchSize) break;
+        from += batchSize;
     }
-
-    const { data: triggeredAlerts } = await query.throwOnError();
 
     const triggeredPolicyNames = new Set(triggeredAlerts?.map(a => a.policy_name).filter(Boolean) || []);
 
@@ -696,21 +824,33 @@ export async function getOverallEffectivenessTrend(days: number): Promise<Effect
     try {
       const now = new Date();
       const today = startOfDay(now);
-      const startDate = subDays(today, days - 1);
       const endDate = endOfDay(now);
 
-      const query = supabaseAdmin
-          .from('alerts_processed')
-          .select('first_seen_at, classification');
+      let triggeredAlerts: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
 
-      if (days > 0) {
-        query.gte('first_seen_at', startDate.toISOString())
-             .lte('first_seen_at', endDate.toISOString());
+      while (true) {
+          const query = supabaseAdmin
+              .from('alerts_processed')
+              .select('first_seen_at, classification')
+              .lte('first_seen_at', endDate.toISOString())
+              .range(from, from + batchSize - 1);
+
+          if (days > 0) {
+            const startDate = subDays(today, days - 1);
+            query.gte('first_seen_at', startDate.toISOString());
+          }
+
+          const { data, error } = await query;
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          triggeredAlerts.push(...data);
+          if (data.length < batchSize) break;
+          from += batchSize;
       }
 
-      const { data } = await query.throwOnError();
-
-      if (!data) return [];
+      if (triggeredAlerts.length === 0) return [];
       
       const dailyStats: Record<string, { truePositives: number, total: number }> = {};
       
@@ -721,7 +861,7 @@ export async function getOverallEffectivenessTrend(days: number): Promise<Effect
         }
       }
 
-      data.forEach(({ first_seen_at, classification }) => {
+      triggeredAlerts.forEach(({ first_seen_at, classification }) => {
           if (!first_seen_at || !classification) return;
           const date = new Date(first_seen_at).toISOString().split('T')[0];
           if (days === 0 && !dailyStats[date]) {
@@ -756,21 +896,33 @@ export async function getAlertsTrend(days: number): Promise<AlertTrendPoint[]> {
     try {
       const now = new Date();
       const today = startOfDay(now);
-      const startDate = subDays(today, days - 1);
       const endDate = endOfDay(now);
 
-      const query = supabaseAdmin
-          .from('alerts_processed')
-          .select('first_seen_at, classification');
+      let triggeredAlerts: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
 
-      if (days > 0) {
-        query.gte('first_seen_at', startDate.toISOString())
-             .lte('first_seen_at', endDate.toISOString());
+      while (true) {
+          const query = supabaseAdmin
+              .from('alerts_processed')
+              .select('first_seen_at, classification')
+              .lte('first_seen_at', endDate.toISOString())
+              .range(from, from + batchSize - 1);
+
+          if (days > 0) {
+            const startDate = subDays(today, days - 1);
+            query.gte('first_seen_at', startDate.toISOString());
+          }
+
+          const { data, error } = await query;
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          triggeredAlerts.push(...data);
+          if (data.length < batchSize) break;
+          from += batchSize;
       }
 
-      const { data } = await query.throwOnError();
-
-      if (!data) return [];
+      if (triggeredAlerts.length === 0) return [];
       
       const dailyStats: Record<string, { 'True Positives': number, 'False Positives': number }> = {};
 
@@ -781,7 +933,7 @@ export async function getAlertsTrend(days: number): Promise<AlertTrendPoint[]> {
         }
       }
 
-      data.forEach(({ first_seen_at, classification }) => {
+      triggeredAlerts.forEach(({ first_seen_at, classification }) => {
           if (!first_seen_at || !classification) return;
           const date = new Date(first_seen_at).toISOString().split('T')[0];
           if (days === 0 && !dailyStats[date]) {
@@ -807,17 +959,27 @@ export async function getAlertsTrend(days: number): Promise<AlertTrendPoint[]> {
 
 export async function getUserBehaviorSummary(): Promise<UserBehaviorPoint[]> {
   noStore();
+  let allData: any[] = [];
+  let from = 0;
+  const batchSize = 1000;
+
   try {
-    const { data } = await supabaseAdmin
-      .from('alerts_processed')
-      .select('behavior')
-      .eq('classification', 'True_Positive')
-      .not('email_sender', 'is', null)
-      .throwOnError();
+    while (true) {
+        const { data, error } = await supabaseAdmin
+            .from('alerts_processed')
+            .select('behavior, email_sender')
+            .eq('classification', 'True_Positive')
+            .not('email_sender', 'is', null)
+            .range(from, from + batchSize - 1);
 
-    if (!data) return [];
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData.push(...data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+    }
 
-    const behaviorCounts = data.reduce((acc, alert) => {
+    const behaviorCounts = allData.reduce((acc, alert) => {
       const behavior = alert.behavior || 'Unknown';
       acc[behavior] = (acc[behavior] || 0) + 1;
       return acc;
@@ -1281,16 +1443,25 @@ export type AIAnalyticsData = {
 
 export async function getAIAnalyticsData(): Promise<AIAnalyticsData[]> {
   noStore();
-  try {
-    const { data } = await supabaseAdmin
-      .from('alerts_processed')
-      .select('Title, policy_name, total_tokens: "Total Tokens", cost_estimation: "Cost Estimation for Tokens", first_seen_at, classification, email_sender')
-      .limit(50000)
-      .throwOnError();
-    
-    if (!data) return [];
+  let allData: any[] = [];
+  let from = 0;
+  const batchSize = 1000;
 
-    const mappedData = data.map(d => ({
+  try {
+    while (true) {
+      const { data, error } = await supabaseAdmin
+        .from('alerts_processed')
+        .select('Title, policy_name, total_tokens: "Total Tokens", cost_estimation: "Cost Estimation for Tokens", first_seen_at, classification, email_sender')
+        .range(from, from + batchSize - 1);
+      
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      allData.push(...data);
+      if (data.length < batchSize) break;
+      from += batchSize;
+    }
+    
+    const mappedData = allData.map(d => ({
       ...d,
       total_tokens: Number(d.total_tokens) || 0,
       cost_estimation: Number(d.cost_estimation) || 0,
@@ -1311,13 +1482,24 @@ export type EfficiencyAlert = {
 
 export async function getEfficiencyAlerts(): Promise<EfficiencyAlert[]> {
   noStore();
+  let allData: any[] = [];
+  let from = 0;
+  const batchSize = 1000;
+
   try {
-    const { data } = await supabaseAdmin
-      .from('alerts_processed')
-      .select('classification, first_seen_at')
-      .limit(50000)
-      .throwOnError();
-    return (data as EfficiencyAlert[]) || [];
+    while (true) {
+      const { data, error } = await supabaseAdmin
+        .from('alerts_processed')
+        .select('classification, first_seen_at')
+        .range(from, from + batchSize - 1);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      allData.push(...data);
+      if (data.length < batchSize) break;
+      from += batchSize;
+    }
+    return (allData as EfficiencyAlert[]) || [];
   } catch (e: any) {
     if (!isTableMissingError(e)) console.error('Error fetching efficiency alerts:', e);
     return [];
@@ -1374,7 +1556,7 @@ export async function getAIEfficiencyData(): Promise<AIEfficiencyData> {
       if (!alert.first_seen_at) return;
       const date = new Date(alert.first_seen_at).toISOString().split('T')[0];
       if (!dailyData[date]) {
-        dailyStats[date] = { truePositives: 0, total: 0 };
+        dailyData[date] = { truePositives: 0, falsePositives: 0 };
       }
       if (alert.classification === 'True_Positive') {
         dailyData[date].truePositives++;
@@ -1428,11 +1610,6 @@ export async function getAIEfficiencyData(): Promise<AIEfficiencyData> {
   }
 }
 
-export type ProcessedAlertsTrendPoint = {
-  time: string;
-  count: number;
-};
-
 export async function getProcessedAlertsTrendLastHour(): Promise<ProcessedAlertsTrendPoint[]> {
   noStore();
   const oneHourAgo = new Date();
@@ -1474,16 +1651,32 @@ export async function getProcessedAlertsTrendLastHour(): Promise<ProcessedAlerts
   }
 }
 
+export type ProcessedAlertsTrendPoint = {
+  time: string;
+  count: number;
+};
+
 export async function getPromptLibraryInsights(): Promise<PromptInsight[]> {
   noStore();
-  try {
-    const { data } = await supabaseAdmin
-      .from('alerts_processed')
-      .select('policy_name, Title, classification_reason, first_seen_at')
-      .eq('feedback_referral', 'yes')
-      .throwOnError();
+  let allData: any[] = [];
+  let from = 0;
+  const batchSize = 1000;
 
-    return (data as PromptInsight[]) || [];
+  try {
+    while (true) {
+        const { data, error } = await supabaseAdmin
+            .from('alerts_processed')
+            .select('policy_name, Title, classification_reason, first_seen_at')
+            .eq('feedback_referral', 'yes')
+            .range(from, from + batchSize - 1);
+
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData.push(...data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+    }
+    return (allData as PromptInsight[]) || [];
   } catch (e: any) {
     if (!isTableMissingError(e)) console.error('Error fetching prompt library insights:', e);
     return [];

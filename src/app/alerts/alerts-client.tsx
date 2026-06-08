@@ -6,7 +6,7 @@ import { type Alert, getRedundancyData, type Redundancy } from '@/app/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert as UiAlert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, ArrowUpDown, Mail, ListFilter, X, ArrowUp, ArrowDown, Filter } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, Mail, ListFilter, X, ArrowUp, ArrowDown, Filter, ShieldAlert } from 'lucide-react';
 import { SupabaseStatus } from '@/components/supabase-status';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -532,8 +532,21 @@ export function AlertsClient({ initialAlerts }: { initialAlerts: Alert[] }) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="mb-4 text-lg font-bold text-primary">
-                    Record Count: {sortedAndFilteredAlerts.length.toLocaleString()}
+                  <div className="mb-6 p-4 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-primary">
+                        <div className="p-2 rounded-full bg-primary/10">
+                            <ShieldAlert className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Record Count</p>
+                            <p className="text-2xl font-bold">{sortedAndFilteredAlerts.length.toLocaleString()}</p>
+                        </div>
+                    </div>
+                    {filter && (
+                         <p className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
+                            Filtered from {alerts.length.toLocaleString()} total
+                         </p>
+                    )}
                   </div>
                   <div className="mb-4 flex items-center gap-2">
                     <Input
@@ -709,7 +722,7 @@ export function AlertsClient({ initialAlerts }: { initialAlerts: Alert[] }) {
                           </Button>
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          Page {currentPage} of {totalPages} | Total Records: {sortedAndFilteredAlerts.length}
+                          Page {currentPage} of {totalPages} | Showing {currentAlerts.length} of {sortedAndFilteredAlerts.length} filtered records
                         </div>
                       </div>
                     </>
