@@ -104,7 +104,7 @@ export async function checkSupabaseConnection() {
     return { status: 'Active' as const };
   } catch (e: any) {
     if (isTableMissingError(e)) {
-      return { status: 'Active' as const }; // Table doesn't exist but connection is technically OK
+      return { status: 'Active' as const };
     }
     console.error('Supabase connection check failed:', e);
     return { status: 'Inactive' as const };
@@ -166,9 +166,26 @@ export async function getAlerts(): Promise<Alert[]> {
     while (true) {
       const { data, error } = await supabaseAdmin
         .from('alerts_processed')
-        .select(
-          'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,next_time(whatNotToDoNextTime),Feedback_L1'
-        )
+        .select(`
+          Title,
+          policy_name,
+          classification,
+          classification_reason,
+          duplicate_count,
+          risk_score,
+          user_principal_name,
+          email_sender,
+          email_subject,
+          email_recipient,
+          first_seen_at,
+          last_seen_at,
+          fingerprint,
+          behavior,
+          SOP_Instructions,
+          behavior_reason,
+          Feedback_L1,
+          next_time(whatNotToDoNextTime)
+        `)
         .range(from, from + batchSize - 1);
 
       if (error) throw error;
@@ -187,6 +204,7 @@ export async function getAlerts(): Promise<Alert[]> {
         }
     });
 
+    console.log("Total alerts fetched:", alerts.length);
     return alerts as Alert[];
   } catch (e: any) {
     if (!isTableMissingError(e)) console.error('Error fetching alerts:', e);
@@ -270,9 +288,7 @@ export async function getFalsePositiveAlerts(): Promise<Alert[]> {
     while (true) {
       const { data, error } = await supabaseAdmin
         .from('alerts_processed')
-        .select(
-          'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,Feedback_L1'
-        )
+        .select('*')
         .eq('classification', 'False_Positive')
         .range(from, from + batchSize - 1);
 
@@ -317,9 +333,7 @@ export async function getTruePositiveAlerts(): Promise<Alert[]> {
     while (true) {
       const { data, error } = await supabaseAdmin
         .from('alerts_processed')
-        .select(
-          'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,Feedback_L1'
-        )
+        .select('*')
         .eq('classification', 'True_Positive')
         .range(from, from + batchSize - 1);
 
@@ -518,7 +532,6 @@ export async function getTriggeredPoliciesStats(timeRange: number): Promise<Trig
   }
 }
 
-
 export type DailyPolicyTrend = { date: string; count: number };
 
 export async function getDailyPolicyTrend(timeRange: number): Promise<DailyPolicyTrend[]> {
@@ -552,13 +565,6 @@ export async function getDailyPolicyTrend(timeRange: number): Promise<DailyPolic
       
       const dailyUniquePolicies: Record<string, Set<string>> = {};
       
-      if (timeRange > 0) {
-        for (let i = 0; i < timeRange; i++) {
-          const date = subDays(new Date(), i).toISOString().split('T')[0];
-          dailyUniquePolicies[date] = new Set<string>();
-        }
-      }
-
       triggeredAlerts.forEach(({ first_seen_at, policy_name }) => {
           if (!first_seen_at || !policy_name) return;
           const date = new Date(first_seen_at).toISOString().split('T')[0];
@@ -764,7 +770,6 @@ export async function getTriggeredPoliciesDetails(timeRange: number): Promise<Tr
   }
 }
 
-
 export async function getNotTriggeredPoliciesDetails(timeRange: number): Promise<NotTriggeredPolicyDetail[]> {
   noStore();
   try {
@@ -962,8 +967,6 @@ export async function getUserBehaviorSummary(): Promise<UserBehaviorPoint[]> {
   }
 }
 
-
-// Risky User Monitoring Types and Functions
 export type RiskyUserDetail = {
   email: string;
   risk_count: number;
@@ -1400,7 +1403,6 @@ export async function getNonRiskyUsersDetails(): Promise<NonRiskyUserDetail[]> {
   }
 }
 
-// AI Usage Analytics
 export type AIAnalyticsData = {
   Title: string;
   policy_name: string;
@@ -1444,7 +1446,6 @@ export async function getAIAnalyticsData(): Promise<AIAnalyticsData[]> {
   }
 }
 
-// AI Efficiency Analytics
 export type EfficiencyAlert = {
   classification: string;
   first_seen_at: string;
@@ -1486,7 +1487,7 @@ export type AIEfficiencyData = {
 };
 
 export async function getAIEfficiencyData(): Promise<AIEfficiencyData> {
-  const MANUAL_TIME_PER_ALERT_SECONDS = 300; // 5 minutes
+  const MANUAL_TIME_PER_ALERT_SECONDS = 300;
   const AI_TIME_TRUE_POSITIVE_SECONDS = 52.5;
   const AI_TIME_FALSE_POSITIVE_SECONDS = 42.5;
   const AI_TIME_REDUNDANT_SECONDS = 6.5;
@@ -1520,7 +1521,6 @@ export async function getAIEfficiencyData(): Promise<AIEfficiencyData> {
       { name: 'Redundant Alerts', value: aiTimeForRedundant },
     ];
 
-    // Cumulative Trend Calculation
     const dailyData: Record<string, { truePositives: number, falsePositives: number }> = {};
     efficiencyAlerts.forEach(alert => {
       if (!alert.first_seen_at) return;
@@ -1538,7 +1538,7 @@ export async function getAIEfficiencyData(): Promise<AIEfficiencyData> {
     const totalProcessedAlerts = truePositiveCount + falsePositiveCount;
     const redundantRatio = totalProcessedAlerts > 0 ? redundantCount / totalProcessedAlerts : 0;
 
-    const sortedDates = Object.keys(dailyData).sort((a,b) => new Date(a.getTime()) - new Date(b.getTime()));
+    const sortedDates = Object.keys(dailyData).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
     let cumulativeHoursSaved = 0;
     const cumulativeTimeSavedTrend = sortedDates.map(date => {
         const dailyProcessed = dailyData[date].truePositives + dailyData[date].falsePositives;

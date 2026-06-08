@@ -50,7 +50,7 @@ type PageData = {
 };
 
 type DialogDataType = 'triggered' | 'notTriggered' | null;
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 10;
 
 
 export default function PolicyInsightsPage() {
@@ -276,10 +276,10 @@ export default function PolicyInsightsPage() {
               </Tooltip>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-6">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Card>
+                  <Card className="w-full">
                       <CardHeader>
                           <CardTitle>Policy True Positive Rate</CardTitle>
                           <CardDescription>Policies by true positive ratio overall {getTimeLabel(timeRange)}.</CardDescription>
@@ -296,7 +296,7 @@ export default function PolicyInsightsPage() {
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Card>
+                  <Card className="w-full">
                       <CardHeader>
                           <CardTitle>Policy False Positive Rate</CardTitle>
                           <CardDescription>Policies by false positive ratio overall {getTimeLabel(timeRange)}.</CardDescription>
@@ -436,7 +436,7 @@ const TopTriggeredPoliciesChart: FC<{ data: TopTriggeredPolicy[], isCount?: bool
                     <XAxis 
                         dataKey="policy_name" 
                         type="category"
-                        tick={{ fontSize: 12 }}
+                        tick={{ fontSize: 10 }}
                         tickLine={false}
                         axisLine={false}
                         interval={0}
@@ -460,7 +460,7 @@ const TopEffectivePoliciesChart: FC<{ data: PolicyEffectivenessScore[] }> = ({ d
                 <RechartsBarChart layout="vertical" data={data} margin={{ top: 5, right: 20, left: 120, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                     <XAxis type="number" domain={[0, 100]} unit="%" />
-                    <YAxis dataKey="policy_name" type="category" tick={{ fontSize: 12 }} width={200} />
+                    <YAxis dataKey="policy_name" type="category" tick={{ fontSize: 10 }} width={200} />
                     <RechartsTooltip cursor={{ fill: 'hsl(var(--muted))' }} content={<ChartTooltipContent />} />
                     <Bar dataKey="score" fill="var(--color-score)" radius={4} />
                 </RechartsBarChart>
@@ -559,7 +559,7 @@ const EffectivenessTable: FC<{ data: PolicyEffectivenessScore[], type: 'TP' | 'F
                     <TableBody>
                         {paginatedData.map(policy => (
                             <TableRow key={policy.policy_name}>
-                                <TableCell className="font-medium text-xs truncate max-w-[200px]">{policy.policy_name}</TableCell>
+                                <TableCell className="font-medium text-xs truncate max-w-[300px]">{policy.policy_name}</TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
                                         <Progress value={type === 'TP' ? policy.score : policy.false_positive_rate} className="h-2" />
@@ -580,7 +580,7 @@ const EffectivenessTable: FC<{ data: PolicyEffectivenessScore[], type: 'TP' | 'F
                     <Button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages || paginatedData.length === 0} variant="outline" size="sm">Next</Button>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                    Page {currentPage} of {totalPages}
+                    Page {currentPage} of {totalPages} | Total: {sortedAndFilteredData.length} records
                 </div>
             </div>
         </div>
@@ -617,9 +617,9 @@ const TriggeredPoliciesTable: FC<{ data: TriggeredPolicyDetail[] }> = ({ data })
             <TableBody>
                 {sortedData.map(p => (
                     <TableRow key={p.policy_name}>
-                        <TableCell>{p.policy_name}</TableCell>
-                        <TableCell>{p.description}</TableCell>
-                        <TableCell suppressHydrationWarning>{new Date(p.last_triggered_at).toLocaleString()}</TableCell>
+                        <TableCell className="text-xs">{p.policy_name}</TableCell>
+                        <TableCell className="text-xs">{p.description}</TableCell>
+                        <TableCell suppressHydrationWarning className="text-xs">{new Date(p.last_triggered_at).toLocaleString()}</TableCell>
                     </TableRow>
                 ))}
             </TableBody>
@@ -656,8 +656,8 @@ const NotTriggeredPoliciesTable: FC<{ data: NotTriggeredPolicyDetail[] }> = ({ d
             <TableBody>
                 {sortedData.map(p => (
                     <TableRow key={p.policy_name}>
-                        <TableCell>{p.policy_name}</TableCell>
-                        <TableCell>{p.description}</TableCell>
+                        <TableCell className="text-xs">{p.policy_name}</TableCell>
+                        <TableCell className="text-xs">{p.description}</TableCell>
                     </TableRow>
                 ))}
             </TableBody>
