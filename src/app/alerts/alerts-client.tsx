@@ -532,6 +532,9 @@ export function AlertsClient({ initialAlerts }: { initialAlerts: Alert[] }) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <div className="mb-4 text-lg font-bold text-primary">
+                    Record Count: {sortedAndFilteredAlerts.length.toLocaleString()}
+                  </div>
                   <div className="mb-4 flex items-center gap-2">
                     <Input
                       placeholder="Search alerts..."
@@ -706,7 +709,7 @@ export function AlertsClient({ initialAlerts }: { initialAlerts: Alert[] }) {
                           </Button>
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          Page {currentPage} of {totalPages}
+                          Page {currentPage} of {totalPages} | Total Records: {sortedAndFilteredAlerts.length}
                         </div>
                       </div>
                     </>
