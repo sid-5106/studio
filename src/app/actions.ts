@@ -2,7 +2,7 @@
 'use server';
 
 import { supabaseAdmin } from '@/lib/supabase';
-import { subDays } from 'date-fns';
+import { subDays, startOfDay, endOfDay } from 'date-fns';
 import { unstable_noStore as noStore } from 'next/cache';
 
 export type Policy = {
@@ -394,8 +394,9 @@ export async function getTriggeredPoliciesStats(days: number): Promise<Triggered
     const totalPolicies = allPolicies.length;
     
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const today = startOfDay(now);
     const startDate = subDays(today, days - 1);
+    const endDate = endOfDay(now);
 
     const query = supabaseAdmin
       .from('alerts_processed')
@@ -403,7 +404,7 @@ export async function getTriggeredPoliciesStats(days: number): Promise<Triggered
 
     if (days > 0) {
       query.gte('first_seen_at', startDate.toISOString())
-           .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+           .lte('first_seen_at', endDate.toISOString());
     }
 
     const { data: triggeredAlerts } = await query.throwOnError();
@@ -439,8 +440,9 @@ export async function getDailyPolicyTrend(days: number): Promise<DailyPolicyTren
     noStore();
     try {
       const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = startOfDay(now);
       const startDate = subDays(today, days - 1);
+      const endDate = endOfDay(now);
 
       const query = supabaseAdmin
           .from('alerts_processed')
@@ -448,7 +450,7 @@ export async function getDailyPolicyTrend(days: number): Promise<DailyPolicyTren
 
       if (days > 0) {
         query.gte('first_seen_at', startDate.toISOString())
-             .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+             .lte('first_seen_at', endDate.toISOString());
       }
 
       const { data } = await query.throwOnError();
@@ -457,15 +459,19 @@ export async function getDailyPolicyTrend(days: number): Promise<DailyPolicyTren
       
       const dailyUniquePolicies: Record<string, Set<string>> = {};
       
-      const effectiveDays = days > 0 ? days : 30; // Show last 30 days for trend if all time
-      for (let i = 0; i < effectiveDays; i++) {
-        const date = subDays(today, i).toISOString().split('T')[0];
-        dailyUniquePolicies[date] = new Set<string>();
+      if (days > 0) {
+        for (let i = 0; i < days; i++) {
+          const date = subDays(today, i).toISOString().split('T')[0];
+          dailyUniquePolicies[date] = new Set<string>();
+        }
       }
 
       data.forEach(({ first_seen_at, policy_name }) => {
           if (!first_seen_at || !policy_name) return;
           const date = new Date(first_seen_at).toISOString().split('T')[0];
+          if (days === 0 && !dailyUniquePolicies[date]) {
+              dailyUniquePolicies[date] = new Set<string>();
+          }
           if (dailyUniquePolicies[date]) {
               dailyUniquePolicies[date].add(policy_name);
           }
@@ -491,8 +497,9 @@ export async function getTopTriggeredPolicies(days: number, limit: number = 5): 
     noStore();
     try {
       const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = startOfDay(now);
       const startDate = subDays(today, days - 1);
+      const endDate = endOfDay(now);
 
       const query = supabaseAdmin
           .from('alerts_processed')
@@ -500,7 +507,7 @@ export async function getTopTriggeredPolicies(days: number, limit: number = 5): 
 
       if (days > 0) {
         query.gte('first_seen_at', startDate.toISOString())
-             .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+             .lte('first_seen_at', endDate.toISOString());
       }
 
       const { data } = await query.throwOnError();
@@ -520,7 +527,7 @@ export async function getTopTriggeredPolicies(days: number, limit: number = 5): 
           .map(([policy_name, count]) => ({ policy_name, count }))
           .sort((a, b) => b.count - a.count);
         
-      return sorted.slice(0, limit).reverse();
+      return sorted.slice(0, limit);
     } catch (e: any) {
       if (!isTableMissingError(e)) console.error(`Error fetching top triggered policies for last ${days} days:`, e);
       return [];
@@ -533,8 +540,9 @@ export async function getPolicyEffectivenessScores(days: number): Promise<Policy
     noStore();
     try {
       const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = startOfDay(now);
       const startDate = subDays(today, days - 1);
+      const endDate = endOfDay(now);
 
       const query = supabaseAdmin
           .from('alerts_processed')
@@ -542,7 +550,7 @@ export async function getPolicyEffectivenessScores(days: number): Promise<Policy
 
       if (days > 0) {
         query.gte('first_seen_at', startDate.toISOString())
-             .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+             .lte('first_seen_at', endDate.toISOString());
       }
 
       const { data } = await query.throwOnError();
@@ -590,8 +598,9 @@ export async function getTriggeredPoliciesDetails(days: number): Promise<Trigger
   noStore();
   try {
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const today = startOfDay(now);
     const startDate = subDays(today, days - 1);
+    const endDate = endOfDay(now);
     
     const query = supabaseAdmin
       .from('alerts_processed')
@@ -599,7 +608,7 @@ export async function getTriggeredPoliciesDetails(days: number): Promise<Trigger
 
     if (days > 0) {
       query.gte('first_seen_at', startDate.toISOString())
-           .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+           .lte('first_seen_at', endDate.toISOString());
     }
 
     const { data: triggeredAlerts } = await query.throwOnError();
@@ -644,8 +653,9 @@ export async function getNotTriggeredPoliciesDetails(days: number): Promise<NotT
   noStore();
   try {
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const today = startOfDay(now);
     const startDate = subDays(today, days - 1);
+    const endDate = endOfDay(now);
 
     const { data: allPolicies } = await supabaseAdmin
       .from('Policy')
@@ -660,7 +670,7 @@ export async function getNotTriggeredPoliciesDetails(days: number): Promise<NotT
 
     if (days > 0) {
       query.gte('first_seen_at', startDate.toISOString())
-           .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+           .lte('first_seen_at', endDate.toISOString());
     }
 
     const { data: triggeredAlerts } = await query.throwOnError();
@@ -685,8 +695,9 @@ export async function getOverallEffectivenessTrend(days: number): Promise<Effect
     noStore();
     try {
       const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = startOfDay(now);
       const startDate = subDays(today, days - 1);
+      const endDate = endOfDay(now);
 
       const query = supabaseAdmin
           .from('alerts_processed')
@@ -694,7 +705,7 @@ export async function getOverallEffectivenessTrend(days: number): Promise<Effect
 
       if (days > 0) {
         query.gte('first_seen_at', startDate.toISOString())
-             .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+             .lte('first_seen_at', endDate.toISOString());
       }
 
       const { data } = await query.throwOnError();
@@ -703,15 +714,19 @@ export async function getOverallEffectivenessTrend(days: number): Promise<Effect
       
       const dailyStats: Record<string, { truePositives: number, total: number }> = {};
       
-      const effectiveDays = days > 0 ? days : 30;
-      for (let i = 0; i < effectiveDays; i++) {
-          const date = subDays(today, i).toISOString().split('T')[0];
-          dailyStats[date] = { truePositives: 0, total: 0 };
+      if (days > 0) {
+        for (let i = 0; i < days; i++) {
+            const date = subDays(today, i).toISOString().split('T')[0];
+            dailyStats[date] = { truePositives: 0, total: 0 };
+        }
       }
 
       data.forEach(({ first_seen_at, classification }) => {
           if (!first_seen_at || !classification) return;
           const date = new Date(first_seen_at).toISOString().split('T')[0];
+          if (days === 0 && !dailyStats[date]) {
+              dailyStats[date] = { truePositives: 0, total: 0 };
+          }
           if (dailyStats[date]) {
               dailyStats[date].total++;
               if (classification === 'True_Positive') {
@@ -740,8 +755,9 @@ export async function getAlertsTrend(days: number): Promise<AlertTrendPoint[]> {
     noStore();
     try {
       const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = startOfDay(now);
       const startDate = subDays(today, days - 1);
+      const endDate = endOfDay(now);
 
       const query = supabaseAdmin
           .from('alerts_processed')
@@ -749,7 +765,7 @@ export async function getAlertsTrend(days: number): Promise<AlertTrendPoint[]> {
 
       if (days > 0) {
         query.gte('first_seen_at', startDate.toISOString())
-             .lte('first_seen_at', new Date(today.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString());
+             .lte('first_seen_at', endDate.toISOString());
       }
 
       const { data } = await query.throwOnError();
@@ -758,15 +774,19 @@ export async function getAlertsTrend(days: number): Promise<AlertTrendPoint[]> {
       
       const dailyStats: Record<string, { 'True Positives': number, 'False Positives': number }> = {};
 
-      const effectiveDays = days > 0 ? days : 30;
-      for (let i = 0; i < effectiveDays; i++) {
-        const date = subDays(today, i).toISOString().split('T')[0];
-        dailyStats[date] = { 'True Positives': 0, 'False Positives': 0 };
+      if (days > 0) {
+        for (let i = 0; i < days; i++) {
+          const date = subDays(today, i).toISOString().split('T')[0];
+          dailyStats[date] = { 'True Positives': 0, 'False Positives': 0 };
+        }
       }
 
       data.forEach(({ first_seen_at, classification }) => {
           if (!first_seen_at || !classification) return;
           const date = new Date(first_seen_at).toISOString().split('T')[0];
+          if (days === 0 && !dailyStats[date]) {
+              dailyStats[date] = { 'True Positives': 0, 'False Positives': 0 };
+          }
           if (dailyStats[date]) {
               if (classification === 'True_Positive') {
                   dailyStats[date]['True Positives']++;
@@ -1354,7 +1374,7 @@ export async function getAIEfficiencyData(): Promise<AIEfficiencyData> {
       if (!alert.first_seen_at) return;
       const date = new Date(alert.first_seen_at).toISOString().split('T')[0];
       if (!dailyData[date]) {
-        dailyData[date] = { truePositives: 0, falsePositives: 0 };
+        dailyStats[date] = { truePositives: 0, total: 0 };
       }
       if (alert.classification === 'True_Positive') {
         dailyData[date].truePositives++;
@@ -1366,7 +1386,7 @@ export async function getAIEfficiencyData(): Promise<AIEfficiencyData> {
     const totalProcessedAlerts = truePositiveCount + falsePositiveCount;
     const redundantRatio = totalProcessedAlerts > 0 ? redundantCount / totalProcessedAlerts : 0;
 
-    const sortedDates = Object.keys(dailyData).sort((a,b) => new Date(a.getTime()) - new Date(b.getTime()));
+    const sortedDates = Object.keys(dailyData).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
     let cumulativeHoursSaved = 0;
     const cumulativeTimeSavedTrend = sortedDates.map(date => {
         const dailyProcessed = dailyData[date].truePositives + dailyData[date].falsePositives;

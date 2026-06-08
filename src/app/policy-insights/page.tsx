@@ -1,3 +1,4 @@
+
 'use client';
 
 export const dynamic = 'force-dynamic';
@@ -53,7 +54,7 @@ const PAGE_SIZE = 6;
 
 
 export default function PolicyInsightsPage() {
-  const [timeRange, setTimeRange] = useState(30);
+  const [timeRange, setTimeRange] = useState(0); // Default to All Time
   const [data, setData] = useState<PageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -122,6 +123,12 @@ export default function PolicyInsightsPage() {
     return sorted.slice(0, 5).reverse();
   }, [data]);
 
+  const getTimeLabel = (range: number) => {
+    if (range === 0) return "Overall";
+    if (range === 1) return "Today";
+    return `in last ${range} days`;
+  };
+
   return (
     <AppLayout>
       <TooltipProvider>
@@ -142,6 +149,7 @@ export default function PolicyInsightsPage() {
               <div className="flex justify-between items-center">
                 <CardTitle>Time Filter</CardTitle>
                 <div className="flex gap-2">
+                  <Button variant={timeRange === 0 ? 'default' : 'outline'} onClick={() => handleTimeRangeChange(0)}>All Time</Button>
                   <Button variant={timeRange === 1 ? 'default' : 'outline'} onClick={() => handleTimeRangeChange(1)}>Today</Button>
                   <Button variant={timeRange === 7 ? 'default' : 'outline'} onClick={() => handleTimeRangeChange(7)}>Last 7 Days</Button>
                   <Button variant={timeRange === 30 ? 'default' : 'outline'} onClick={() => handleTimeRangeChange(30)}>Last 30 Days</Button>
@@ -155,12 +163,12 @@ export default function PolicyInsightsPage() {
               <KPICard title="Total Policies" value={data?.totalPolicies} icon={BookCheck} loading={loading} tooltipText="This is the total number of security policies that exist in the system, whether they are active or not." />
             </Link>
             <div className="cursor-pointer" onClick={() => handleCardClick('triggered')}>
-              <KPICard title="Policies Triggered" value={data?.triggeredStats.triggeredCount} icon={Zap} loading={loading} description={`in last ${timeRange} ${timeRange === 1 ? 'day' : 'days'}`} tooltipText="Shows the number of unique security policies that have been triggered by at least one alert during the selected time period." />
+              <KPICard title="Policies Triggered" value={data?.triggeredStats.triggeredCount} icon={Zap} loading={loading} description={getTimeLabel(timeRange)} tooltipText="Shows the number of unique security policies that have been triggered by at least one alert during the selected time period." />
             </div>
             <div className="cursor-pointer" onClick={() => handleCardClick('notTriggered')}>
-              <KPICard title="Policies Not Triggered" value={data?.triggeredStats.notTriggeredCount} icon={BookX} loading={loading} description={`in last ${timeRange} ${timeRange === 1 ? 'day' : 'days'}`} tooltipText="This is the count of policies that have not been triggered by any alerts during the selected time period." />
+              <KPICard title="Policies Not Triggered" value={data?.triggeredStats.notTriggeredCount} icon={BookX} loading={loading} description={getTimeLabel(timeRange)} tooltipText="This is the count of policies that have not been triggered by any alerts during the selected time period." />
             </div>
-            <KPICard title="Most Triggered Policy" value={data?.triggeredStats.mostTriggered} icon={Trophy} loading={loading} description={`in last ${timeRange} ${timeRange === 1 ? 'day' : 'days'}`} textBreak tooltipText="This is the name of the single policy that has been triggered more than any other during the selected time period." />
+            <KPICard title="Most Triggered Policy" value={data?.triggeredStats.mostTriggered} icon={Trophy} loading={loading} description={getTimeLabel(timeRange)} textBreak tooltipText="This is the name of the single policy that has been triggered more than any other during the selected time period." />
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -255,7 +263,7 @@ export default function PolicyInsightsPage() {
                   <Card>
                       <CardHeader>
                           <CardTitle>Top 5 Triggered Policies</CardTitle>
-                          <CardDescription>Policies generating the most alerts in the last {timeRange} {timeRange === 1 ? 'day' : 'days'}.</CardDescription>
+                          <CardDescription>Policies generating the most alerts {getTimeLabel(timeRange)}.</CardDescription>
                       </CardHeader>
                       <CardContent>
                         {loading ? <Skeleton className="h-[250px] w-full" /> : <TopTriggeredPoliciesChart data={data?.topPolicies || []} isCount />}
@@ -273,7 +281,7 @@ export default function PolicyInsightsPage() {
               <Card>
                   <CardHeader>
                       <CardTitle>Policy True Positive Rate</CardTitle>
-                      <CardDescription>Policies by true positive ratio in the last {timeRange} {timeRange === 1 ? 'day' : 'days'}.</CardDescription>
+                      <CardDescription>Policies by true positive ratio {getTimeLabel(timeRange)}.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} />}
@@ -290,7 +298,7 @@ export default function PolicyInsightsPage() {
               <Card>
                   <CardHeader>
                       <CardTitle>Policy False Positive Rate</CardTitle>
-                      <CardDescription>Policies by false positive ratio in the last {timeRange} {timeRange === 1 ? 'day' : 'days'}.</CardDescription>
+                      <CardDescription>Policies by false positive ratio {getTimeLabel(timeRange)}.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {loading ? <Skeleton className="h-[400px] w-full" /> : <FalsePositiveRateTable data={data?.effectivenessScores || []} />}
@@ -312,7 +320,7 @@ export default function PolicyInsightsPage() {
               {dialogType === 'triggered' ? 'Triggered Policies' : 'Not Triggered Policies'}
             </DialogTitle>
             <DialogDescription>
-              Details for policies {dialogType === 'triggered' ? 'triggered' : 'not triggered'} in the last {timeRange} {timeRange === 1 ? 'day' : 'days'}.
+              Details for policies {dialogType === 'triggered' ? 'triggered' : 'not triggered'} {getTimeLabel(timeRange)}.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-auto">
