@@ -276,22 +276,41 @@ export default function PolicyInsightsPage() {
               </Tooltip>
           </div>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Detailed Policy Effectiveness</CardTitle>
-                      <CardDescription>Full breakdown of policy performance {getTimeLabel(timeRange)}.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} />}
-                  </CardContent>
-              </Card>
-            </TooltipTrigger>
-            <TooltipContent>
-                <p>A comprehensive table showing the True Positive Rate and raw counts for every active policy.</p>
-              </TooltipContent>
-          </Tooltip>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card>
+                      <CardHeader>
+                          <CardTitle>Policy True Positive Rate</CardTitle>
+                          <CardDescription>Policies by true positive ratio overall {getTimeLabel(timeRange)}.</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="TP" />}
+                      </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>A comprehensive table showing the True Positive Rate and raw counts for active policies.</p>
+                  </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Card>
+                      <CardHeader>
+                          <CardTitle>Policy False Positive Rate</CardTitle>
+                          <CardDescription>Policies by false positive ratio overall {getTimeLabel(timeRange)}.</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="FP" />}
+                      </CardContent>
+                  </Card>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>A comprehensive table showing the False Positive Rate and raw counts for active policies.</p>
+                  </TooltipContent>
+              </Tooltip>
+          </div>
 
         </div>
       </TooltipProvider>
@@ -450,12 +469,15 @@ const TopEffectivePoliciesChart: FC<{ data: PolicyEffectivenessScore[] }> = ({ d
     );
 };
 
-type EffectivenessSortableColumn = keyof PolicyEffectivenessScore;
+type EffectivenessSortableColumn = keyof PolicyEffectivenessScore | 'false_positive_rate';
 
-const EffectivenessTable: FC<{ data: PolicyEffectivenessScore[] }> = ({ data }) => {
+const EffectivenessTable: FC<{ data: PolicyEffectivenessScore[], type: 'TP' | 'FP' }> = ({ data, type }) => {
     const [filter, setFilter] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [sortConfig, setSortConfig] = useState<{ key: EffectivenessSortableColumn, direction: 'asc' | 'desc' } | null>({ key: 'score', direction: 'desc' });
+    const [sortConfig, setSortConfig] = useState<{ key: EffectivenessSortableColumn, direction: 'asc' | 'desc' } | null>({ 
+      key: type === 'TP' ? 'score' : 'false_positive_rate', 
+      direction: 'desc' 
+    });
     
     const handleSort = (key: EffectivenessSortableColumn) => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -473,20 +495,28 @@ const EffectivenessTable: FC<{ data: PolicyEffectivenessScore[] }> = ({ data }) 
         return <ArrowUpDown className="ml-2 h-4 w-4" />;
     };
 
+    const enrichedData = useMemo(() => {
+      return data.map(item => ({
+        ...item,
+        false_positive_rate: 100 - item.score,
+        false_positives: item.total - item.true_positives
+      }));
+    }, [data]);
+
     const sortedAndFilteredData = useMemo(() => {
-        let filteredData = data.filter(item => item.policy_name.toLowerCase().includes(filter.toLowerCase()));
+        let filteredData = enrichedData.filter(item => item.policy_name.toLowerCase().includes(filter.toLowerCase()));
         
         if (sortConfig) {
             filteredData.sort((a, b) => {
-                const aVal = a[sortConfig.key];
-                const bVal = b[sortConfig.key];
+                const aVal = a[sortConfig.key as keyof typeof a] as number;
+                const bVal = b[sortConfig.key as keyof typeof b] as number;
                 if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
                 if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
                 return 0;
             });
         }
         return filteredData;
-    }, [data, filter, sortConfig]);
+    }, [enrichedData, filter, sortConfig]);
 
     const totalPages = Math.ceil(sortedAndFilteredData.length / PAGE_SIZE);
     const paginatedData = sortedAndFilteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -510,18 +540,18 @@ const EffectivenessTable: FC<{ data: PolicyEffectivenessScore[] }> = ({ data }) 
                                     Policy Name {getSortIcon('policy_name')}
                                 </Button>
                             </TableHead>
-                            <TableHead className="w-[200px]">
-                                <Button variant="ghost" onClick={() => handleSort('score')}>
-                                    Effectiveness {getSortIcon('score')}
+                            <TableHead className="w-[180px]">
+                                <Button variant="ghost" onClick={() => handleSort(type === 'TP' ? 'score' : 'false_positive_rate')}>
+                                    {type === 'TP' ? 'TP Rate' : 'FP Rate'} {getSortIcon(type === 'TP' ? 'score' : 'false_positive_rate')}
                                 </Button>
                             </TableHead>
                             <TableHead className="text-right">
-                              <Button variant="ghost" onClick={() => handleSort('true_positives')}>
-                                True Positives {getSortIcon('true_positives')}
+                              <Button variant="ghost" onClick={() => handleSort(type === 'TP' ? 'true_positives' : 'false_positives')}>
+                                {type === 'TP' ? 'True Positives' : 'False Positives'} {getSortIcon(type === 'TP' ? 'true_positives' : 'false_positives')}
                               </Button>
                                / 
                                <Button variant="ghost" onClick={() => handleSort('total')}>
-                                Total Alerts {getSortIcon('total')}
+                                Total {getSortIcon('total')}
                                </Button>
                             </TableHead>
                         </TableRow>
@@ -529,14 +559,16 @@ const EffectivenessTable: FC<{ data: PolicyEffectivenessScore[] }> = ({ data }) 
                     <TableBody>
                         {paginatedData.map(policy => (
                             <TableRow key={policy.policy_name}>
-                                <TableCell className="font-medium">{policy.policy_name}</TableCell>
+                                <TableCell className="font-medium text-xs truncate max-w-[200px]">{policy.policy_name}</TableCell>
                                 <TableCell>
                                     <div className="flex items-center gap-2">
-                                        <Progress value={policy.score} className="h-2" />
-                                        <span>{policy.score.toFixed(0)}%</span>
+                                        <Progress value={type === 'TP' ? policy.score : policy.false_positive_rate} className="h-2" />
+                                        <span className="text-xs font-semibold">{(type === 'TP' ? policy.score : policy.false_positive_rate).toFixed(0)}%</span>
                                     </div>
                                 </TableCell>
-                                <TableCell className="text-right">{policy.true_positives} / {policy.total}</TableCell>
+                                <TableCell className="text-right text-xs">
+                                  {type === 'TP' ? policy.true_positives : policy.false_positives} / {policy.total}
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -547,7 +579,7 @@ const EffectivenessTable: FC<{ data: PolicyEffectivenessScore[] }> = ({ data }) 
                     <Button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} variant="outline" size="sm">Previous</Button>
                     <Button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages || paginatedData.length === 0} variant="outline" size="sm">Next</Button>
                 </div>
-                <div className="text-sm text-muted-foreground">
+                <div className="text-xs text-muted-foreground">
                     Page {currentPage} of {totalPages}
                 </div>
             </div>
