@@ -136,11 +136,13 @@ export async function getTotalPoliciesCount(): Promise<number> {
 export async function getAlerts(): Promise<Alert[]> {
   noStore();
   try {
+    // Increased limit to 10,000 to ensure all records are displayed
     const { data } = await supabaseAdmin
       .from('alerts_processed')
       .select(
         'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,next_time(whatNotToDoNextTime),Feedback_L1'
       )
+      .limit(10000)
       .throwOnError();
 
     if (!data) return [];
@@ -235,6 +237,7 @@ export async function getFalsePositiveAlerts(): Promise<Alert[]> {
         'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,Feedback_L1'
       )
       .eq('classification', 'False_Positive')
+      .limit(10000)
       .throwOnError();
 
     return (data as Alert[]) || [];
@@ -269,6 +272,7 @@ export async function getTruePositiveAlerts(): Promise<Alert[]> {
         'Title,policy_name,classification,classification_reason,duplicate_count,risk_score,user_principal_name,email_sender,email_subject,email_recipient,first_seen_at,last_seen_at,fingerprint,behavior,SOP_Instructions,behavior_reason,Feedback_L1'
       )
       .eq('classification', 'True_Positive')
+      .limit(10000)
       .throwOnError();
 
     return (data as Alert[]) || [];
@@ -1327,7 +1331,7 @@ export async function getAIEfficiencyData(): Promise<AIEfficiencyData> {
     const totalProcessedAlerts = truePositiveCount + falsePositiveCount;
     const redundantRatio = totalProcessedAlerts > 0 ? redundantCount / totalProcessedAlerts : 0;
 
-    const sortedDates = Object.keys(dailyData).sort((a,b) => new Date(a.getTime()) - new Date(b.getTime()));
+    const sortedDates = Object.keys(dailyData).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
     let cumulativeHoursSaved = 0;
     const cumulativeTimeSavedTrend = sortedDates.map(date => {
         const dailyProcessed = dailyData[date].truePositives + dailyData[date].falsePositives;
