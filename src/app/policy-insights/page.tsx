@@ -124,9 +124,9 @@ export default function PolicyInsightsPage() {
   }, [data]);
 
   const getTimeLabel = (range: number) => {
-    if (range === 0) return "Overall";
-    if (range === 1) return "Today";
-    return `in last ${range} days`;
+    if (range === 0) return "for all available history";
+    if (range === 1) return "today";
+    return `in last ${range} days (including today)`;
   };
 
   return (
@@ -160,15 +160,15 @@ export default function PolicyInsightsPage() {
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Link href="/policies" className="no-underline">
-              <KPICard title="Total Policies" value={data?.totalPolicies} icon={BookCheck} loading={loading} tooltipText="This is the total number of security policies that exist in the system, whether they are active or not." />
+              <KPICard title="Total Policies" value={data?.totalPolicies} icon={BookCheck} loading={loading} tooltipText="Total security policies defined in the system." />
             </Link>
             <div className="cursor-pointer" onClick={() => handleCardClick('triggered')}>
-              <KPICard title="Policies Triggered" value={data?.triggeredStats.triggeredCount} icon={Zap} loading={loading} description={getTimeLabel(timeRange)} tooltipText="Shows the number of unique security policies that have been triggered by at least one alert during the selected time period." />
+              <KPICard title="Policies Triggered" value={data?.triggeredStats.triggeredCount} icon={Zap} loading={loading} description={getTimeLabel(timeRange)} tooltipText="Unique policies that generated alerts in the selected period." />
             </div>
             <div className="cursor-pointer" onClick={() => handleCardClick('notTriggered')}>
-              <KPICard title="Policies Not Triggered" value={data?.triggeredStats.notTriggeredCount} icon={BookX} loading={loading} description={getTimeLabel(timeRange)} tooltipText="This is the count of policies that have not been triggered by any alerts during the selected time period." />
+              <KPICard title="Policies Not Triggered" value={data?.triggeredStats.notTriggeredCount} icon={BookX} loading={loading} description={getTimeLabel(timeRange)} tooltipText="Policies that remained inactive in the selected period." />
             </div>
-            <KPICard title="Most Triggered Policy" value={data?.triggeredStats.mostTriggered} icon={Trophy} loading={loading} description={getTimeLabel(timeRange)} textBreak tooltipText="This is the name of the single policy that has been triggered more than any other during the selected time period." />
+            <KPICard title="Most Triggered Policy" value={data?.triggeredStats.mostTriggered} icon={Trophy} loading={loading} description={getTimeLabel(timeRange)} textBreak tooltipText="The policy responsible for the highest alert volume." />
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -185,7 +185,7 @@ export default function PolicyInsightsPage() {
                 </Card>
               </TooltipTrigger>
               <TooltipContent>
-                <p>This chart tracks the number of unique security policies that were triggered each day, giving you an idea of the breadth of policy activity over time.</p>
+                <p>Tracks the breadth of policy violations occurring daily.</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -201,7 +201,7 @@ export default function PolicyInsightsPage() {
                 </Card>
               </TooltipTrigger>
               <TooltipContent>
-                <p>This pie chart shows what percentage of all your security policies have been triggered versus those that have remained inactive during the selected period.</p>
+                <p>Shows the activation rate of your policy library.</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -220,14 +220,14 @@ export default function PolicyInsightsPage() {
                 </Card>
               </TooltipTrigger>
               <TooltipContent>
-                <p>This chart shows how effective your policies are over time by tracking the percentage of alerts that are true positives each day.</p>
+                <p>Tracks how accurately your policies identify real threats over time.</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Top 5 Policies with most True positives</CardTitle>
+                    <CardTitle>Top 5 Most Accurate Policies</CardTitle>
                     <CardDescription>Highest true positive rate in the selected time range.</CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -236,7 +236,7 @@ export default function PolicyInsightsPage() {
                 </Card>
               </TooltipTrigger>
               <TooltipContent>
-                <p>This chart highlights the 5 policies that have the highest 'true positive' rate, meaning they are the most accurate at identifying real security issues.</p>
+                <p>Highlights the policies with the highest signal-to-noise ratio.</p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -246,7 +246,7 @@ export default function PolicyInsightsPage() {
                 <TooltipTrigger asChild>
                   <Card>
                       <CardHeader>
-                        <CardTitle>Alert Trend</CardTitle>
+                        <CardTitle>Alert Noise Reduction</CardTitle>
                         <CardDescription>False positives vs. True positives over time.</CardDescription>
                       </CardHeader>
                       <CardContent>
@@ -255,7 +255,7 @@ export default function PolicyInsightsPage() {
                   </Card>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>This chart compares the number of 'True Positive' alerts (real threats) against 'False Positive' alerts (harmless events) over time, helping you see if alert 'noise' is increasing or decreasing.</p>
+                  <p>Compares real threats against false alarms to visualize system accuracy improvements.</p>
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -271,7 +271,7 @@ export default function PolicyInsightsPage() {
                   </Card>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>This chart shows the 5 policies that have generated the most alerts in the selected time frame, which can help identify noisy or frequently violated rules.</p>
+                  <p>Identifies the rules that are most frequently hit, which may indicate common security gaps or noisy rules.</p>
                 </TooltipContent>
               </Tooltip>
           </div>
@@ -280,8 +280,8 @@ export default function PolicyInsightsPage() {
             <TooltipTrigger asChild>
               <Card>
                   <CardHeader>
-                      <CardTitle>Policy True Positive Rate</CardTitle>
-                      <CardDescription>Policies by true positive ratio {getTimeLabel(timeRange)}.</CardDescription>
+                      <CardTitle>Detailed Policy Effectiveness</CardTitle>
+                      <CardDescription>Full breakdown of policy performance {getTimeLabel(timeRange)}.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     {loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} />}
@@ -289,24 +289,7 @@ export default function PolicyInsightsPage() {
               </Card>
             </TooltipTrigger>
             <TooltipContent>
-                <p>This table provides a detailed breakdown of every policy, showing its effectiveness score (true positive rate) and the total number of alerts it has generated.</p>
-              </TooltipContent>
-          </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Policy False Positive Rate</CardTitle>
-                      <CardDescription>Policies by false positive ratio {getTimeLabel(timeRange)}.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {loading ? <Skeleton className="h-[400px] w-full" /> : <FalsePositiveRateTable data={data?.effectivenessScores || []} />}
-                  </CardContent>
-              </Card>
-            </TooltipTrigger>
-            <TooltipContent>
-                <p>This table provides a detailed breakdown of every policy, showing its false positive rate and the total number of alerts it has generated.</p>
+                <p>A comprehensive table showing the True Positive Rate and raw counts for every active policy.</p>
               </TooltipContent>
           </Tooltip>
 
@@ -320,7 +303,7 @@ export default function PolicyInsightsPage() {
               {dialogType === 'triggered' ? 'Triggered Policies' : 'Not Triggered Policies'}
             </DialogTitle>
             <DialogDescription>
-              Details for policies {dialogType === 'triggered' ? 'triggered' : 'not triggered'} {getTimeLabel(timeRange)}.
+              Listing policies {dialogType === 'triggered' ? 'triggered' : 'not triggered'} {getTimeLabel(timeRange)}.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] overflow-auto">
@@ -453,11 +436,11 @@ const TopEffectivePoliciesChart: FC<{ data: PolicyEffectivenessScore[] }> = ({ d
     if (data.length === 0) return <NoDataPlaceholder />;
     
     return (
-        <ChartContainer config={{score: { label: "Score", color: "hsl(var(--chart-3))" }}} className="min-h-[250px] w-full">
+        <ChartContainer config={{score: { label: "Accuracy %", color: "hsl(var(--chart-3))" }}} className="min-h-[250px] w-full">
             <ResponsiveContainer width="100%" height={250}>
                 <RechartsBarChart layout="vertical" data={data} margin={{ top: 5, right: 20, left: 120, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} />
+                    <XAxis type="number" domain={[0, 100]} unit="%" />
                     <YAxis dataKey="policy_name" type="category" tick={{ fontSize: 12 }} width={200} />
                     <RechartsTooltip cursor={{ fill: 'hsl(var(--muted))' }} content={<ChartTooltipContent />} />
                     <Bar dataKey="score" fill="var(--color-score)" radius={4} />
@@ -538,7 +521,7 @@ const EffectivenessTable: FC<{ data: PolicyEffectivenessScore[] }> = ({ data }) 
                               </Button>
                                / 
                                <Button variant="ghost" onClick={() => handleSort('total')}>
-                                Total {getSortIcon('total')}
+                                Total Alerts {getSortIcon('total')}
                                </Button>
                             </TableHead>
                         </TableRow>
@@ -571,119 +554,6 @@ const EffectivenessTable: FC<{ data: PolicyEffectivenessScore[] }> = ({ data }) 
         </div>
     );
 };
-
-const FalsePositiveRateTable: FC<{ data: PolicyEffectivenessScore[] }> = ({ data }) => {
-    type FalsePositivePolicyScore = PolicyEffectivenessScore & { false_positives: number; false_positive_rate: number };
-    type SortableColumn = keyof FalsePositivePolicyScore;
-
-    const transformedData = useMemo(() => data.map(p => ({
-        ...p,
-        false_positives: p.total - p.true_positives,
-        false_positive_rate: p.total > 0 ? ((p.total - p.true_positives) / p.total) * 100 : 0,
-    })), [data]);
-
-    const [filter, setFilter] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
-    const [sortConfig, setSortConfig] = useState<{ key: SortableColumn, direction: 'asc' | 'desc' } | null>({ key: 'false_positive_rate', direction: 'desc' });
-    
-    const handleSort = (key: SortableColumn) => {
-        let direction: 'asc' | 'desc' = 'asc';
-        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
-        }
-        setSortConfig({ key, direction });
-        setCurrentPage(1);
-    };
-
-    const getSortIcon = (columnKey: SortableColumn) => {
-        if (!sortConfig || sortConfig.key !== columnKey) {
-          return <ArrowUpDown className="ml-2 h-4 w-4 opacity-30" />;
-        }
-        return <ArrowUpDown className="ml-2 h-4 w-4" />;
-    };
-
-    const sortedAndFilteredData = useMemo(() => {
-        let filteredData = transformedData.filter(item => item.policy_name.toLowerCase().includes(filter.toLowerCase()));
-        
-        if (sortConfig) {
-            filteredData.sort((a, b) => {
-                const aVal = a[sortConfig.key];
-                const bVal = b[sortConfig.key];
-                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-        return filteredData;
-    }, [transformedData, filter, sortConfig]);
-
-    const totalPages = Math.ceil(sortedAndFilteredData.length / PAGE_SIZE);
-    const paginatedData = sortedAndFilteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-    if (data.length === 0) return <NoDataPlaceholder />;
-    
-    return (
-        <div>
-            <Input 
-                placeholder="Search policies..."
-                value={filter}
-                onChange={(e) => { setFilter(e.target.value); setCurrentPage(1); }}
-                className="max-w-sm mb-4"
-            />
-            <div className="overflow-hidden rounded-md border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>
-                                <Button variant="ghost" onClick={() => handleSort('policy_name')}>
-                                    Policy Name {getSortIcon('policy_name')}
-                                </Button>
-                            </TableHead>
-                            <TableHead className="w-[200px]">
-                                <Button variant="ghost" onClick={() => handleSort('false_positive_rate')}>
-                                    False Positive Rate {getSortIcon('false_positive_rate')}
-                                </Button>
-                            </TableHead>
-                            <TableHead className="text-right">
-                              <Button variant="ghost" onClick={() => handleSort('false_positives')}>
-                                False Positives {getSortIcon('false_positives')}
-                              </Button>
-                               / 
-                               <Button variant="ghost" onClick={() => handleSort('total')}>
-                                Total {getSortIcon('total')}
-                               </Button>
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {paginatedData.map(policy => (
-                            <TableRow key={policy.policy_name}>
-                                <TableCell className="font-medium">{policy.policy_name}</TableCell>
-                                <TableCell>
-                                    <div className="flex items-center gap-2">
-                                        <Progress value={policy.false_positive_rate} className="h-2" />
-                                        <span>{policy.false_positive_rate.toFixed(0)}%</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-right">{policy.false_positives} / {policy.total}</TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </div>
-            <div className="flex items-center justify-between mt-4">
-                <div className="flex items-center gap-2">
-                    <Button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} variant="outline" size="sm">Previous</Button>
-                    <Button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages || paginatedData.length === 0} variant="outline" size="sm">Next</Button>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                    Page {currentPage} of {totalPages}
-                </div>
-            </div>
-        </div>
-    );
-};
-
 
 type TriggeredSortableColumn = keyof TriggeredPolicyDetail;
 
