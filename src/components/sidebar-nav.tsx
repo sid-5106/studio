@@ -3,7 +3,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Shield, ShieldAlert, ClipboardCheck, BookText, Users, Newspaper, Zap, Cpu, Lightbulb } from 'lucide-react';
+import { LayoutDashboard, Shield, ShieldAlert, ClipboardCheck, BookText, Users, Newspaper, Zap, Cpu, Lightbulb, BrainCircuit } from 'lucide-react';
 import { SidebarMenu, SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 
 const navItems = [
@@ -16,6 +16,7 @@ const navItems = [
   { href: '/ai-efficiency', label: 'AI vs Human Efficiency', icon: Zap },
   { href: '/ai-usage', label: 'AI Usage', icon: Cpu },
   { href: '/prompt-library-insights', label: 'Prompt Library Insights', icon: Lightbulb },
+  { href: '/policy-confidence', label: 'Policy Confidence', icon: BrainCircuit },
   { href: '/kb-article', label: 'KB Article', icon: Newspaper },
 ];
 

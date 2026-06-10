@@ -36,6 +36,7 @@ export type Alert = {
   SOP_Instructions?: string;
   whatNotToDoNextTime?: string;
   Feedback_L1?: string;
+  AI_confidence?: number;
 };
 
 export type Redundancy = {
@@ -1649,6 +1650,51 @@ export async function getPromptLibraryInsights(): Promise<PromptInsight[]> {
     return (allData as PromptInsight[]) || [];
   } catch (e: any) {
     if (!isTableMissingError(e)) console.error('Error fetching prompt library insights:', e);
+    return [];
+  }
+}
+
+export async function getLowConfidenceAlerts(): Promise<Alert[]> {
+  noStore();
+  let allAlerts: any[] = [];
+  let from = 0;
+  const batchSize = 1000;
+
+  try {
+    while (true) {
+      const { data, error } = await supabaseAdmin
+        .from('alerts_processed')
+        .select(`
+          Title,
+          policy_name,
+          classification,
+          classification_reason,
+          first_seen_at,
+          "AI-confidence",
+          fingerprint
+        `)
+        .lt('AI-confidence', 75)
+        .range(from, from + batchSize - 1);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      allAlerts.push(...data);
+      if (data.length < batchSize) break;
+      from += batchSize;
+    }
+
+    return allAlerts.map(v => ({
+        Title: v.Title,
+        policy_name: v.policy_name,
+        classification: v.classification,
+        classification_reason: v.classification_reason,
+        first_seen_at: v.first_seen_at,
+        AI_confidence: v["AI-confidence"],
+        fingerprint: v.fingerprint
+    })) as Alert[];
+  } catch (e: any) {
+    if (!isTableMissingError(e)) console.error('Error fetching low confidence alerts:', e);
     return [];
   }
 }
