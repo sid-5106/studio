@@ -31,6 +31,8 @@ export type Alert = {
   first_seen_at: string;
   last_seen_at: string;
   fingerprint: string;
+  evidence_createdDateTime?: string;
+  alert_upload_time?: string;
   behavior?: string;
   behavior_reason?: string;
   SOP_Instructions?: string;
@@ -185,6 +187,8 @@ export async function getAlerts(): Promise<Alert[]> {
           SOP_Instructions,
           behavior_reason,
           Feedback_L1,
+          evidence_createdDateTime,
+          alert_upload_time,
           next_time(whatNotToDoNextTime)
         `)
         .range(from, from + batchSize - 1);
@@ -1539,7 +1543,7 @@ export async function getAIEfficiencyData(): Promise<AIEfficiencyData> {
     const totalProcessedAlerts = truePositiveCount + falsePositiveCount;
     const redundantRatio = totalProcessedAlerts > 0 ? redundantCount / totalProcessedAlerts : 0;
 
-    const sortedDates = Object.keys(dailyData).sort((a,b) => new Date(a).getTime() - new Date(b).getTime());
+    const sortedDates = Object.keys(dailyData).sort((a,b) => new Date(a.getTime()) - new Date(b.getTime()));
     let cumulativeHoursSaved = 0;
     const cumulativeTimeSavedTrend = sortedDates.map(date => {
         const dailyProcessed = dailyData[date].truePositives + dailyData[date].falsePositives;

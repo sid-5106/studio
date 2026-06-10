@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { type Alert, getRedundancyData, type Redundancy } from '@/app/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -131,7 +131,7 @@ export function AlertsClient({ initialAlerts }: { initialAlerts: Alert[] }) {
           let comparison = 0;
           if (typeof aValue === 'number' && typeof bValue === 'number') {
             comparison = aValue - bValue;
-          } else if (key === 'first_seen_at' || key === 'last_seen_at') {
+          } else if (key === 'first_seen_at' || key === 'last_seen_at' || key === 'evidence_createdDateTime' || key === 'alert_upload_time') {
             comparison = new Date(aValue as string).getTime() - new Date(bValue as string).getTime();
           }
           else {
@@ -185,7 +185,7 @@ export function AlertsClient({ initialAlerts }: { initialAlerts: Alert[] }) {
     return <SortIndicator />;
   };
   
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
     try {
       return new Date(dateString).toLocaleString();
@@ -643,6 +643,18 @@ export function AlertsClient({ initialAlerts }: { initialAlerts: Alert[] }) {
                                 </Button>
                               </TableHead>
                               <TableHead>
+                                  <Button variant="ghost" onClick={() => handleSort('evidence_createdDateTime')}>
+                                      Evidence Created At
+                                      {getSortIcon('evidence_createdDateTime')}
+                                  </Button>
+                              </TableHead>
+                              <TableHead>
+                                  <Button variant="ghost" onClick={() => handleSort('alert_upload_time')}>
+                                      Upload Time
+                                      {getSortIcon('alert_upload_time')}
+                                  </Button>
+                              </TableHead>
+                              <TableHead>
                                   <Button variant="ghost" onClick={() => handleSort('first_seen_at')}>
                                       First Seen
                                       {getSortIcon('first_seen_at')}
@@ -695,6 +707,8 @@ export function AlertsClient({ initialAlerts }: { initialAlerts: Alert[] }) {
                                 </TableCell>
                                 <TableCell>{alert.email_subject}</TableCell>
                                 <TableCell>{alert.email_recipient}</TableCell>
+                                <TableCell suppressHydrationWarning>{formatDate(alert.evidence_createdDateTime)}</TableCell>
+                                <TableCell suppressHydrationWarning>{formatDate(alert.alert_upload_time)}</TableCell>
                                 <TableCell suppressHydrationWarning>{formatDate(alert.first_seen_at)}</TableCell>
                                 <TableCell suppressHydrationWarning>{formatDate(alert.last_seen_at)}</TableCell>
                               </TableRow>
