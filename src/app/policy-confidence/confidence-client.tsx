@@ -4,134 +4,125 @@
 import { useState, useMemo } from 'react';
 import { type Alert } from '@/app/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert as UiAlert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { ShieldAlert, Activity } from 'lucide-react';
+import { ShieldAlert, BarChart3 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+
+interface PolicyStat {
+  name: string;
+  totalAlerts: number;
+  averageConfidence: number;
+}
 
 export function ConfidenceClient({ initialAlerts }: { initialAlerts: Alert[] }) {
   const [alerts] = useState<Alert[]>(initialAlerts);
   const [filter, setFilter] = useState('');
 
-  const groupedAndFilteredAlerts = useMemo(() => {
+  const summarizedStats = useMemo(() => {
     const grouped = alerts.reduce((acc, alert) => {
       const policy = alert.policy_name || 'Uncategorized';
       if (!acc[policy]) {
-        acc[policy] = [];
+        acc[policy] = { count: 0, sum: 0 };
       }
-      acc[policy].push(alert);
+      acc[policy].count += 1;
+      acc[policy].sum += alert.AI_confidence || 0;
       return acc;
-    }, {} as Record<string, Alert[]>);
+    }, {} as Record<string, { count: number; sum: number }>);
+
+    const stats = Object.entries(grouped).map(([name, data]) => ({
+      name,
+      totalAlerts: data.count,
+      averageConfidence: data.count > 0 ? data.sum / data.count : 0,
+    }));
+
+    // Default sort by lowest average confidence
+    stats.sort((a, b) => a.averageConfidence - b.averageConfidence);
 
     if (!filter) {
-      return grouped;
+      return stats;
     }
 
     const lowercasedFilter = filter.toLowerCase();
-    return Object.entries(grouped).reduce((acc, [policyName, policyAlerts]) => {
-      if (policyName.toLowerCase().includes(lowercasedFilter)) {
-        acc[policyName] = policyAlerts;
-      }
-      return acc;
-    }, {} as Record<string, Alert[]>);
-
+    return stats.filter((stat) => stat.name.toLowerCase().includes(lowercasedFilter));
   }, [alerts, filter]);
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return 'N/A';
-    try {
-      return new Date(dateString).toLocaleString();
-    } catch (e) {
-      return dateString;
-    }
-  };
-
-  const policyNames = Object.keys(groupedAndFilteredAlerts).sort();
 
   return (
     <Card>
-        <CardHeader>
-            <CardTitle>Low Confidence Alerts</CardTitle>
-            <CardDescription>
-                Alerts where the AI-confidence score is below 75%. These records may require manual review to validate AI reasoning.
-            </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <div className="mb-4">
-                <Input
-                    placeholder="Search by policy name..."
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    className="max-w-sm"
-                />
+      <CardHeader>
+        <CardTitle>Policy Confidence Summary</CardTitle>
+        <CardDescription>
+          A summary of policies with alerts where AI-confidence is below 75%. Use this to identify rules that may need logic refinement.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-6 p-4 rounded-lg bg-primary/5 border border-primary/10 flex items-center justify-between">
+          <div className="flex items-center gap-3 text-primary">
+            <div className="p-2 rounded-full bg-primary/10">
+              <BarChart3 className="h-5 w-5" />
             </div>
-            {policyNames.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full">
-                    {policyNames.map((policyName) => (
-                        <AccordionItem value={policyName} key={policyName}>
-                            <AccordionTrigger className="hover:no-underline">
-                                <div className="flex items-center gap-4">
-                                    <span className="font-semibold text-lg">{policyName}</span>
-                                    <Badge variant="secondary" className="font-normal">
-                                        {groupedAndFilteredAlerts[policyName].length} Alert{groupedAndFilteredAlerts[policyName].length === 1 ? '' : 's'}
-                                    </Badge>
-                                </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                <div className="overflow-auto rounded-md border mt-2">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow className="bg-muted/50">
-                                                <TableHead className="w-[300px]">Alert Title</TableHead>
-                                                <TableHead className="w-[200px]">Timestamp</TableHead>
-                                                <TableHead className="w-[150px]">Confidence</TableHead>
-                                                <TableHead>AI Reasoning</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {groupedAndFilteredAlerts[policyName].map((alert, index) => (
-                                                <TableRow key={index}>
-                                                    <TableCell className="font-medium">{alert.Title}</TableCell>
-                                                    <TableCell suppressHydrationWarning>{formatDate(alert.first_seen_at)}</TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-full max-w-[60px]">
-                                                                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                                                                    <div 
-                                                                        className="h-full bg-orange-500" 
-                                                                        style={{ width: `${alert.AI_confidence}%` }}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                            <span className="font-bold text-orange-600">{alert.AI_confidence}%</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="whitespace-pre-wrap break-words max-w-[500px] text-muted-foreground italic">
-                                                            {alert.classification_reason}
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
-                </Accordion>
-            ) : (
-                <UiAlert>
-                    <ShieldAlert className="h-4 w-4" />
-                    <UiAlertTitle>No Low Confidence Alerts Found</UiAlertTitle>
-                    <AlertDescription>
-                        All alerts currently have a confidence score of 75% or higher, or none match your search criteria.
-                    </AlertDescription>
-                </UiAlert>
-            )}
-        </CardContent>
+            <div>
+              <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider">Policies with Issues</p>
+              <p className="text-2xl font-bold">{summarizedStats.length}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <Input
+            placeholder="Search by policy name..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
+
+        {summarizedStats.length > 0 ? (
+          <div className="overflow-hidden rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-[50%]">Policy Name</TableHead>
+                  <TableHead className="text-center">Low Confidence Alerts</TableHead>
+                  <TableHead className="w-[30%]">Avg. Confidence Score</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {summarizedStats.map((stat, index) => (
+                  <TableRow key={index} className="hover:bg-muted/50 transition-colors">
+                    <TableCell className="font-semibold text-base py-4">{stat.name}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="secondary" className="px-4 py-1 text-sm font-bold">
+                        {stat.totalAlerts}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className={`font-bold ${stat.averageConfidence < 60 ? 'text-destructive' : 'text-orange-600'}`}>
+                            {stat.averageConfidence.toFixed(1)}%
+                          </span>
+                        </div>
+                        <Progress value={stat.averageConfidence} className="h-2" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : (
+          <UiAlert>
+            <ShieldAlert className="h-4 w-4" />
+            <UiAlertTitle>No Low Confidence Rules Found</UiAlertTitle>
+            <AlertDescription>
+              All policies currently have high confidence scores, or none match your search criteria.
+            </AlertDescription>
+          </UiAlert>
+        )}
+      </CardContent>
     </Card>
   );
 }
