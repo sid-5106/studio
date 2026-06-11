@@ -110,6 +110,24 @@ export type EffectivenessTrendPoint = { date: string; score: number };
 export type AlertTrendPoint = { date: string; 'True Positives': number; 'False Positives': number };
 export type UserBehaviorPoint = { name: string; value: number; };
 
+export type AIEfficiencyData = {
+  totalAITimeSeconds: number;
+  totalManualTimeSeconds: number;
+  totalTimeSavedSeconds: number;
+  totalAlerts: number;
+  cumulativeTimeSavedTrend: { date: string; hoursSaved: number }[];
+};
+
+export type AIAnalyticsData = {
+  Title: string;
+  policy_name: string;
+  total_tokens: number;
+  cost_estimation: number;
+  classification: string;
+  first_seen_at: string;
+  email_sender: string;
+};
+
 const isTableMissingError = (error: any) => {
   return error && (error.code === '42P01' || error.message?.includes('does not exist'));
 };
@@ -616,4 +634,56 @@ export async function getUserBehaviorDistribution(email: string): Promise<UserBe
   const counts: Record<string, number> = {};
   alerts.forEach(a => { const b = a.behavior || 'Unknown'; counts[b] = (counts[b] || 0) + 1; });
   return Object.entries(counts).map(([name, value]) => ({ name, value }));
+}
+
+export async function getAIEfficiencyData(timeRange: number): Promise<AIEfficiencyData> {
+  noStore();
+  const { startDate, endDate } = getDateFilter(timeRange);
+  const alerts = await fetchAllWithBatching<{ classification: string, first_seen_at: string }>(
+    supabaseAdmin.from('alerts_processed').select('classification, first_seen_at'),
+    'first_seen_at', startDate, endDate
+  );
+
+  const redundancyCount = await getTotalRedundancyCount(timeRange);
+
+  const counts = {
+    tp: alerts.filter(a => a.classification === 'True_Positive').length,
+    fp: alerts.filter(a => a.classification === 'False_Positive').length,
+    redundant: redundancyCount,
+    total: alerts.length + redundancyCount
+  };
+
+  const totalAITimeSeconds = (counts.tp * 52.5) + (counts.fp * 42.5) + (counts.redundant * 6.5);
+  const totalManualTimeSeconds = counts.total * 300;
+
+  const dailySavings: Record<string, number> = {};
+  alerts.forEach(a => {
+    const d = new Date(a.first_seen_at).toISOString().split('T')[0];
+    const savings = 300 - (a.classification === 'True_Positive' ? 52.5 : 42.5);
+    dailySavings[d] = (dailySavings[d] || 0) + savings;
+  });
+
+  const cumulativeTimeSavedTrend = Object.entries(dailySavings)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .reduce((acc, [date, savings], idx) => {
+      const prev = idx > 0 ? acc[idx - 1].hoursSaved : 0;
+      acc.push({ date, hoursSaved: prev + (savings / 3600) });
+      return acc;
+    }, [] as { date: string, hoursSaved: number }[]);
+
+  return {
+    totalAITimeSeconds,
+    totalManualTimeSeconds,
+    totalTimeSavedSeconds: totalManualTimeSeconds - totalAITimeSeconds,
+    totalAlerts: counts.total,
+    cumulativeTimeSavedTrend
+  };
+}
+
+export async function getAIAnalyticsData(): Promise<AIAnalyticsData[]> {
+  noStore();
+  return fetchAllWithBatching<any>(
+    supabaseAdmin.from('alerts_processed').select('Title, policy_name, total_tokens, cost_estimation, classification, first_seen_at, email_sender'),
+    'first_seen_at', null, endOfDay(new Date())
+  );
 }

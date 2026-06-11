@@ -237,8 +237,6 @@ export function AlertsClient({ initialAlerts }: { initialAlerts: Alert[] }) {
     );
   };
   
-  const filterCount = [dateFilter, classificationFilter, behaviorFilter].filter(f => (Array.isArray(f) ? f.length > 0 : f !== undefined)).length;
-
   return (
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
         <header className="flex items-center justify-between">

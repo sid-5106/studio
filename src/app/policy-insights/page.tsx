@@ -96,7 +96,7 @@ export default function PolicyInsightsPage() {
     setDialogContent(details); setIsDialogLoading(false);
   };
 
-  const getTimeLabel = (r: number) => r === 0 ? "overall history" : r === 1 ? "today" : `last ${r} days (incl. today)`;
+  const getTimeLabel = (r: number) => r === 0 ? "overall history" : r === 1 ? "today" : `last ${r} days (including today)`;
 
   return (
     <AppLayout>
@@ -135,15 +135,17 @@ export default function PolicyInsightsPage() {
             <Card><CardHeader><CardTitle>Coverage</CardTitle></CardHeader><CardContent>{loading ? <Skeleton className="h-64 w-full" /> : <PolicyCoverageChart data={coverageData} />}</CardContent></Card>
           </div>
 
-          <Card className="w-full">
-            <CardHeader><CardTitle>Policy True Positive Rate</CardTitle><CardDescription>Most effective rules identifying real threats.</CardDescription></CardHeader>
-            <CardContent>{loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="TP" />}</CardContent>
-          </Card>
+          <div className="flex flex-col gap-6">
+            <Card className="w-full">
+              <CardHeader><CardTitle>Policy True Positive Rate</CardTitle><CardDescription>Most effective rules identifying real threats.</CardDescription></CardHeader>
+              <CardContent>{loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="TP" />}</CardContent>
+            </Card>
 
-          <Card className="w-full">
-            <CardHeader><CardTitle>Policy False Positive Rate</CardTitle><CardDescription>Rules generating the most noise.</CardDescription></CardHeader>
-            <CardContent>{loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="FP" />}</CardContent>
-          </Card>
+            <Card className="w-full">
+              <CardHeader><CardTitle>Policy False Positive Rate</CardTitle><CardDescription>Rules generating the most noise.</CardDescription></CardHeader>
+              <CardContent>{loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="FP" />}</CardContent>
+            </Card>
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card><CardHeader><CardTitle>Accuracy Trend</CardTitle></CardHeader><CardContent>{loading ? <Skeleton className="h-64 w-full" /> : <OverallEffectivenessChart data={data?.effectivenessTrend || []} />}</CardContent></Card>
