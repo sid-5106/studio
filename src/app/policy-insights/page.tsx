@@ -52,9 +52,8 @@ type PageData = {
 type DialogDataType = 'triggered' | 'notTriggered' | null;
 const PAGE_SIZE = 10;
 
-
 export default function PolicyInsightsPage() {
-  const [timeRange, setTimeRange] = useState(0); // Default to All Time
+  const [timeRange, setTimeRange] = useState(0); // All Time default
   const [data, setData] = useState<PageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -66,13 +65,8 @@ export default function PolicyInsightsPage() {
     async function fetchData() {
       setLoading(true);
       const [
-        totalPolicies,
-        triggeredStats,
-        dailyTrend,
-        topPolicies,
-        effectivenessScores,
-        effectivenessTrend,
-        alertsTrend,
+        totalPolicies, triggeredStats, dailyTrend, topPolicies,
+        effectivenessScores, effectivenessTrend, alertsTrend,
       ] = await Promise.all([
         getTotalPoliciesCount(),
         getTriggeredPoliciesStats(timeRange),
@@ -91,250 +85,78 @@ export default function PolicyInsightsPage() {
   const coverageData = useMemo(() => {
     if (!data) return [];
     return [
-      { name: 'Policies Triggered', value: data.triggeredStats.triggeredCount, fill: 'hsl(var(--chart-1))' },
-      { name: 'Policies Not Triggered', value: data.triggeredStats.notTriggeredCount, fill: 'hsl(var(--chart-2))' },
+      { name: 'Triggered', value: data.triggeredStats.triggeredCount, fill: 'hsl(var(--chart-1))' },
+      { name: 'Inactive', value: data.triggeredStats.notTriggeredCount, fill: 'hsl(var(--chart-2))' },
     ];
   }, [data]);
   
-  const handleTimeRangeChange = (days: number) => {
-    if (days !== timeRange) {
-        setTimeRange(days);
-    }
-  };
-
   const handleCardClick = async (type: DialogDataType) => {
-    if (!type) return;
-    setDialogType(type);
-    setIsDialogOpen(true);
-    setIsDialogLoading(true);
-    if (type === 'triggered') {
-        const details = await getTriggeredPoliciesDetails(timeRange);
-        setDialogContent(details);
-    } else if (type === 'notTriggered') {
-        const details = await getNotTriggeredPoliciesDetails(timeRange);
-        setDialogContent(details);
-    }
-    setIsDialogLoading(false);
+    setDialogType(type); setIsDialogOpen(true); setIsDialogLoading(true);
+    const details = type === 'triggered' ? await getTriggeredPoliciesDetails(timeRange) : await getNotTriggeredPoliciesDetails(timeRange);
+    setDialogContent(details); setIsDialogLoading(false);
   };
-  
-  const top5Effective = useMemo(() => {
-    if (!data) return [];
-    const sorted = [...data.effectivenessScores].sort((a,b) => b.score - a.score);
-    return sorted.slice(0, 5).reverse();
-  }, [data]);
 
-  const getTimeLabel = (range: number) => {
-    if (range === 0) return "for all available history";
-    if (range === 1) return "today";
-    return `in last ${range} days (including today)`;
-  };
+  const getTimeLabel = (r: number) => r === 0 ? "overall history" : r === 1 ? "today" : `last ${r} days (incl. today)`;
 
   return (
     <AppLayout>
       <TooltipProvider>
         <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
           <header className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Policy Insights</h1>
-              <p className="text-muted-foreground">Insights into security policy performance and effectiveness.</p>
-            </div>
-            <div className="flex items-center gap-4">
-              <SupabaseStatus />
-              <ThemeSwitcher />
-            </div>
+            <h1 className="text-3xl font-bold tracking-tight">Policy Insights</h1>
+            <div className="flex items-center gap-4"><SupabaseStatus /><ThemeSwitcher /></div>
           </header>
 
           <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Time Filter</CardTitle>
-                <div className="flex gap-2">
-                  <Button variant={timeRange === 0 ? 'default' : 'outline'} onClick={() => handleTimeRangeChange(0)}>All Time</Button>
-                  <Button variant={timeRange === 1 ? 'default' : 'outline'} onClick={() => handleTimeRangeChange(1)}>Today</Button>
-                  <Button variant={timeRange === 7 ? 'default' : 'outline'} onClick={() => handleTimeRangeChange(7)}>Last 7 Days</Button>
-                  <Button variant={timeRange === 30 ? 'default' : 'outline'} onClick={() => handleTimeRangeChange(30)}>Last 30 Days</Button>
-                </div>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Time Filter</CardTitle>
+              <div className="flex gap-2">
+                <Button variant={timeRange === 0 ? 'default' : 'outline'} onClick={() => setTimeRange(0)}>All Time</Button>
+                <Button variant={timeRange === 1 ? 'default' : 'outline'} onClick={() => setTimeRange(1)}>Today</Button>
+                <Button variant={timeRange === 7 ? 'default' : 'outline'} onClick={() => setTimeRange(7)}>Last 7 Days</Button>
+                <Button variant={timeRange === 30 ? 'default' : 'outline'} onClick={() => setTimeRange(30)}>Last 30 Days</Button>
               </div>
             </CardHeader>
           </Card>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Link href="/policies" className="no-underline">
-              <KPICard title="Total Policies" value={data?.totalPolicies} icon={BookCheck} loading={loading} tooltipText="Total security policies defined in the system." />
-            </Link>
+            <KPICard title="Total Policies" value={data?.totalPolicies} icon={BookCheck} loading={loading} />
             <div className="cursor-pointer" onClick={() => handleCardClick('triggered')}>
-              <KPICard title="Policies Triggered" value={data?.triggeredStats.triggeredCount} icon={Zap} loading={loading} description={getTimeLabel(timeRange)} tooltipText="Unique policies that generated alerts in the selected period." />
+                <KPICard title="Triggered" value={data?.triggeredStats.triggeredCount} icon={Zap} loading={loading} description={getTimeLabel(timeRange)} />
             </div>
             <div className="cursor-pointer" onClick={() => handleCardClick('notTriggered')}>
-              <KPICard title="Policies Not Triggered" value={data?.triggeredStats.notTriggeredCount} icon={BookX} loading={loading} description={getTimeLabel(timeRange)} tooltipText="Policies that remained inactive in the selected period." />
+                <KPICard title="Inactive" value={data?.triggeredStats.notTriggeredCount} icon={BookX} loading={loading} description={getTimeLabel(timeRange)} />
             </div>
-            <KPICard title="Most Triggered Policy" value={data?.triggeredStats.mostTriggered} icon={Trophy} loading={loading} description={getTimeLabel(timeRange)} textBreak tooltipText="The policy responsible for the highest alert volume." />
+            <KPICard title="Top Volume" value={data?.triggeredStats.mostTriggered} icon={Trophy} loading={loading} textBreak />
           </div>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Policy Trend</CardTitle>
-                    <CardDescription>Unique policies triggered each day.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {loading ? <Skeleton className="h-[250px] w-full" /> : <DailyTrendChart data={data?.dailyTrend || []} />}
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Tracks the breadth of policy violations occurring daily.</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Policy Coverage</CardTitle>
-                    <CardDescription>Percentage of triggered vs. not triggered policies.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {loading ? <Skeleton className="h-[250px] w-full" /> : <PolicyCoverageChart data={coverageData} />}
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Shows the activation rate of your policy library.</p>
-              </TooltipContent>
-            </Tooltip>
+            <Card><CardHeader><CardTitle>Activation Trend</CardTitle></CardHeader><CardContent>{loading ? <Skeleton className="h-64 w-full" /> : <DailyTrendChart data={data?.dailyTrend || []} />}</CardContent></Card>
+            <Card><CardHeader><CardTitle>Coverage</CardTitle></CardHeader><CardContent>{loading ? <Skeleton className="h-64 w-full" /> : <PolicyCoverageChart data={coverageData} />}</CardContent></Card>
           </div>
-          
+
+          <Card className="w-full">
+            <CardHeader><CardTitle>Policy True Positive Rate</CardTitle><CardDescription>Most effective rules identifying real threats.</CardDescription></CardHeader>
+            <CardContent>{loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="TP" />}</CardContent>
+          </Card>
+
+          <Card className="w-full">
+            <CardHeader><CardTitle>Policy False Positive Rate</CardTitle><CardDescription>Rules generating the most noise.</CardDescription></CardHeader>
+            <CardContent>{loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="FP" />}</CardContent>
+          </Card>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Policy True Positive Trend</CardTitle>
-                    <CardDescription>Effectiveness score = (True Positives / Total Alerts) %</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {loading ? <Skeleton className="h-[250px] w-full" /> : <OverallEffectivenessChart data={data?.effectivenessTrend || []} />}
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Tracks how accurately your policies identify real threats over time.</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Top 5 Most Accurate Policies</CardTitle>
-                    <CardDescription>Highest true positive rate in the selected time range.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {loading ? <Skeleton className="h-[250px] w-full" /> : <TopEffectivePoliciesChart data={top5Effective} />}
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Highlights the policies with the highest signal-to-noise ratio.</p>
-              </TooltipContent>
-            </Tooltip>
+            <Card><CardHeader><CardTitle>Accuracy Trend</CardTitle></CardHeader><CardContent>{loading ? <Skeleton className="h-64 w-full" /> : <OverallEffectivenessChart data={data?.effectivenessTrend || []} />}</CardContent></Card>
+            <Card><CardHeader><CardTitle>Noise Reduction</CardTitle></CardHeader><CardContent>{loading ? <Skeleton className="h-64 w-full" /> : <AlertNoiseReductionChart data={data?.alertsTrend || []} />}</CardContent></Card>
           </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Card>
-                      <CardHeader>
-                        <CardTitle>Alert Noise Reduction</CardTitle>
-                        <CardDescription>False positives vs. True positives over time.</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {loading ? <Skeleton className="h-[250px] w-full" /> : <AlertNoiseReductionChart data={data?.alertsTrend || []} />}
-                      </CardContent>
-                  </Card>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Compares real threats against false alarms to visualize system accuracy improvements.</p>
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Card>
-                      <CardHeader>
-                          <CardTitle>Top 5 Triggered Policies</CardTitle>
-                          <CardDescription>Policies generating the most alerts {getTimeLabel(timeRange)}.</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {loading ? <Skeleton className="h-[250px] w-full" /> : <TopTriggeredPoliciesChart data={data?.topPolicies || []} isCount />}
-                      </CardContent>
-                  </Card>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Identifies the rules that are most frequently hit, which may indicate common security gaps or noisy rules.</p>
-                </TooltipContent>
-              </Tooltip>
-          </div>
-
-          <div className="space-y-6">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Card className="w-full">
-                      <CardHeader>
-                          <CardTitle>Policy True Positive Rate</CardTitle>
-                          <CardDescription>Policies by true positive ratio overall {getTimeLabel(timeRange)}.</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="TP" />}
-                      </CardContent>
-                  </Card>
-                </TooltipTrigger>
-                <TooltipContent>
-                    <p>A comprehensive table showing the True Positive Rate and raw counts for active policies.</p>
-                  </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Card className="w-full">
-                      <CardHeader>
-                          <CardTitle>Policy False Positive Rate</CardTitle>
-                          <CardDescription>Policies by false positive ratio overall {getTimeLabel(timeRange)}.</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="FP" />}
-                      </CardContent>
-                  </Card>
-                </TooltipTrigger>
-                <TooltipContent>
-                    <p>A comprehensive table showing the False Positive Rate and raw counts for active policies.</p>
-                  </TooltipContent>
-              </Tooltip>
-          </div>
-
         </div>
       </TooltipProvider>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl bg-[#292828]">
-          <DialogHeader>
-            <DialogTitle>
-              {dialogType === 'triggered' ? 'Triggered Policies' : 'Not Triggered Policies'}
-            </DialogTitle>
-            <DialogDescription>
-              Listing policies {dialogType === 'triggered' ? 'triggered' : 'not triggered'} {getTimeLabel(timeRange)}.
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-4xl bg-card">
+          <DialogHeader><DialogTitle>{dialogType === 'triggered' ? 'Triggered' : 'Inactive'} Policies</DialogTitle></DialogHeader>
           <div className="max-h-[60vh] overflow-auto">
-            {isDialogLoading ? (
-              <div className="flex justify-center items-center h-40">
-                  <p>Loading details...</p>
-              </div>
-            ) : dialogType === 'triggered' ? (
-                <TriggeredPoliciesTable data={dialogContent as TriggeredPolicyDetail[]} />
-            ) : (
-                <NotTriggeredPoliciesTable data={dialogContent as NotTriggeredPolicyDetail[]} />
-            )}
+            {isDialogLoading ? <div className="p-20 text-center">Loading...</div> : dialogType === 'triggered' ? <TriggeredTable data={dialogContent as any} /> : <InactiveTable data={dialogContent as any} />}
           </div>
         </DialogContent>
       </Dialog>
@@ -342,376 +164,80 @@ export default function PolicyInsightsPage() {
   );
 }
 
-const KPICard: FC<{
-  title: string;
-  value: string | number | undefined;
-  icon: React.ElementType;
-  loading: boolean;
-  description?: string;
-  textBreak?: boolean;
-  tooltipText?: string;
-}> = ({ title, value, icon: Icon, loading, description, textBreak = false, tooltipText }) => {
-  const cardContent = (
-    <Card className="relative overflow-hidden h-full">
-      <div className="absolute top-0 left-0 h-1 w-full bg-[#548118]" />
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        {loading ? <Skeleton className="h-8 w-3/4" /> : <div className={`text-2xl font-bold ${textBreak ? 'break-words' : ''}`}>{String(value ?? '')}</div>}
-        {description && <p className="text-xs text-muted-foreground">{description}</p>}
-      </CardContent>
+const KPICard: FC<{ title: string; value: any; icon: any; loading: boolean; description?: string; textBreak?: boolean }> = ({ title, value, icon: Icon, loading, description, textBreak }) => (
+    <Card className="relative overflow-hidden">
+        <div className="absolute top-0 left-0 h-1 w-full bg-primary" />
+        <CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-sm font-medium">{title}</CardTitle><Icon className="h-4 w-4 text-muted-foreground" /></CardHeader>
+        <CardContent>
+            {loading ? <Skeleton className="h-8 w-3/4" /> : <div className={`text-2xl font-bold ${textBreak ? 'break-words' : ''}`}>{String(value ?? '0')}</div>}
+            {description && <p className="text-xs text-muted-foreground">{description}</p>}
+        </CardContent>
     </Card>
-  );
-
-  if (tooltipText) {
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>{cardContent}</TooltipTrigger>
-          <TooltipContent>
-            <p>{tooltipText}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-  return cardContent;
-};
-
-const PolicyCoverageChart: FC<{ data: {name: string, value: number, fill: string}[] }> = ({ data }) => {
-    const total = useMemo(() => data.reduce((acc, curr) => acc + curr.value, 0), [data]);
-    if (total === 0) return <NoDataPlaceholder />;
-
-    return (
-        <ChartContainer config={{
-            'Policies Triggered': { label: 'Policies Triggered' },
-            'Policies Not Triggered': { label: 'Policies Not Triggered' },
-        }} className="min-h-[250px] w-full">
-            <ResponsiveContainer width="100%" height={250}>
-                <RechartsPieChart>
-                    <RechartsTooltip content={<ChartTooltipContent hideLabel />} />
-                    <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5}>
-                        {data.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                    </Pie>
-                    <Legend />
-                </RechartsPieChart>
-            </ResponsiveContainer>
-        </ChartContainer>
-    );
-};
-
-const DailyTrendChart: FC<{data: DailyPolicyTrend[]}> = ({ data }) => {
-    if (data.length === 0) return <NoDataPlaceholder />;
-    return (
-        <ChartContainer config={{ count: { label: "Policies", color: "hsl(var(--chart-1))" } }} className="min-h-[250px] w-full">
-            <ResponsiveContainer width="100%" height={250}>
-                <RechartsLineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tickFormatter={(str) => new Date(str).toLocaleDateString('en-US', {month:'short', day:'numeric'})} />
-                    <YAxis allowDecimals={false} />
-                    <RechartsTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Line type="monotone" dataKey="count" stroke="hsl(var(--chart-1))" strokeWidth={2} name="Unique Policies" dot={false} />
-                </RechartsLineChart>
-            </ResponsiveContainer>
-        </ChartContainer>
-    );
-};
-
-const TopTriggeredPoliciesChart: FC<{ data: TopTriggeredPolicy[], isCount?: boolean }> = ({ data, isCount = false }) => {
-    if (data.length === 0) return <NoDataPlaceholder />;
-    const dataKey = isCount ? "count" : "score";
-    const chartColor = isCount ? "hsl(var(--chart-1))" : "hsl(var(--chart-2))";
-    
-    return (
-        <ChartContainer config={{[dataKey]: { label: isCount ? "Count" : "Score", color: chartColor }}} className="min-h-[250px] w-full">
-            <ResponsiveContainer width="100%" height={250}>
-                <RechartsBarChart layout="horizontal" data={data} margin={{ top: 5, right: 20, left: 10, bottom: 50 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <YAxis type="number" allowDecimals={false} />
-                    <XAxis 
-                        dataKey="policy_name" 
-                        type="category"
-                        tick={{ fontSize: 10 }}
-                        tickLine={false}
-                        axisLine={false}
-                        interval={0}
-                        angle={-45}
-                        textAnchor="end"
-                    />
-                    <RechartsTooltip cursor={{ fill: 'hsl(var(--muted))' }} content={<ChartTooltipContent />} />
-                    <Bar dataKey={dataKey} fill={`var(--color-${dataKey})`} radius={4} />
-                </RechartsBarChart>
-            </ResponsiveContainer>
-        </ChartContainer>
-    );
-};
-
-const TopEffectivePoliciesChart: FC<{ data: PolicyEffectivenessScore[] }> = ({ data }) => {
-    if (data.length === 0) return <NoDataPlaceholder />;
-    
-    return (
-        <ChartContainer config={{score: { label: "Accuracy %", color: "hsl(var(--chart-3))" }}} className="min-h-[250px] w-full">
-            <ResponsiveContainer width="100%" height={250}>
-                <RechartsBarChart layout="vertical" data={data} margin={{ top: 5, right: 20, left: 120, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" domain={[0, 100]} unit="%" />
-                    <YAxis dataKey="policy_name" type="category" tick={{ fontSize: 10 }} width={200} />
-                    <RechartsTooltip cursor={{ fill: 'hsl(var(--muted))' }} content={<ChartTooltipContent />} />
-                    <Bar dataKey="score" fill="var(--color-score)" radius={4} />
-                </RechartsBarChart>
-            </ResponsiveContainer>
-        </ChartContainer>
-    );
-};
-
-type EffectivenessSortableColumn = keyof PolicyEffectivenessScore | 'false_positive_rate';
+);
 
 const EffectivenessTable: FC<{ data: PolicyEffectivenessScore[], type: 'TP' | 'FP' }> = ({ data, type }) => {
     const [filter, setFilter] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
-    const [sortConfig, setSortConfig] = useState<{ key: EffectivenessSortableColumn, direction: 'asc' | 'desc' } | null>({ 
-      key: type === 'TP' ? 'score' : 'false_positive_rate', 
-      direction: 'desc' 
-    });
-    
-    const handleSort = (key: EffectivenessSortableColumn) => {
-        let direction: 'asc' | 'desc' = 'asc';
-        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
-        }
-        setSortConfig({ key, direction });
-        setCurrentPage(1);
-    };
+    const [page, setPage] = useState(1);
+    const enriched = useMemo(() => data.map(i => ({ ...i, fpr: 100 - i.score, fps: i.total - i.true_positives })), [data]);
+    const filtered = enriched.filter(i => i.policy_name.toLowerCase().includes(filter.toLowerCase())).sort((a,b) => type === 'TP' ? b.score - a.score : b.fpr - a.fpr);
+    const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
-    const getSortIcon = (columnKey: EffectivenessSortableColumn) => {
-        if (!sortConfig || sortConfig.key !== columnKey) {
-          return <ArrowUpDown className="ml-2 h-4 w-4 opacity-30" />;
-        }
-        return <ArrowUpDown className="ml-2 h-4 w-4" />;
-    };
-
-    const enrichedData = useMemo(() => {
-      return data.map(item => ({
-        ...item,
-        false_positive_rate: 100 - item.score,
-        false_positives: item.total - item.true_positives
-      }));
-    }, [data]);
-
-    const sortedAndFilteredData = useMemo(() => {
-        let filteredData = enrichedData.filter(item => item.policy_name.toLowerCase().includes(filter.toLowerCase()));
-        
-        if (sortConfig) {
-            filteredData.sort((a, b) => {
-                const aVal = a[sortConfig.key as keyof typeof a] as number;
-                const bVal = b[sortConfig.key as keyof typeof b] as number;
-                if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-                if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-                return 0;
-            });
-        }
-        return filteredData;
-    }, [enrichedData, filter, sortConfig]);
-
-    const totalPages = Math.ceil(sortedAndFilteredData.length / PAGE_SIZE);
-    const paginatedData = sortedAndFilteredData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-    if (data.length === 0) return <NoDataPlaceholder />;
-    
     return (
-        <div>
-            <Input 
-                placeholder="Search policies..."
-                value={filter}
-                onChange={(e) => { setFilter(e.target.value); setCurrentPage(1); }}
-                className="max-w-sm mb-4"
-            />
-            <div className="overflow-hidden rounded-md border">
+        <div className="space-y-4">
+            <Input placeholder="Search..." value={filter} onChange={e => {setFilter(e.target.value); setPage(1);}} className="max-w-sm" />
+            <div className="border rounded-md">
                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>
-                                <Button variant="ghost" onClick={() => handleSort('policy_name')}>
-                                    Policy Name {getSortIcon('policy_name')}
-                                </Button>
-                            </TableHead>
-                            <TableHead className="w-[180px]">
-                                <Button variant="ghost" onClick={() => handleSort(type === 'TP' ? 'score' : 'false_positive_rate')}>
-                                    {type === 'TP' ? 'TP Rate' : 'FP Rate'} {getSortIcon(type === 'TP' ? 'score' : 'false_positive_rate')}
-                                </Button>
-                            </TableHead>
-                            <TableHead className="text-right">
-                              <Button variant="ghost" onClick={() => handleSort(type === 'TP' ? 'true_positives' : 'false_positives')}>
-                                {type === 'TP' ? 'True Positives' : 'False Positives'} {getSortIcon(type === 'TP' ? 'true_positives' : 'false_positives')}
-                              </Button>
-                               / 
-                               <Button variant="ghost" onClick={() => handleSort('total')}>
-                                Total {getSortIcon('total')}
-                               </Button>
-                            </TableHead>
-                        </TableRow>
-                    </TableHeader>
+                    <TableHeader><TableRow><TableHead>Policy Name</TableHead><TableHead>{type === 'TP' ? 'TP Rate' : 'FP Rate'}</TableHead><TableHead className="text-right">Breakdown</TableHead></TableRow></TableHeader>
                     <TableBody>
-                        {paginatedData.map(policy => (
-                            <TableRow key={policy.policy_name}>
-                                <TableCell className="font-medium text-xs truncate max-w-[300px]">{policy.policy_name}</TableCell>
-                                <TableCell>
-                                    <div className="flex items-center gap-2">
-                                        <Progress value={type === 'TP' ? policy.score : policy.false_positive_rate} className="h-2" />
-                                        <span className="text-xs font-semibold">{(type === 'TP' ? policy.score : policy.false_positive_rate).toFixed(0)}%</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-right text-xs">
-                                  {type === 'TP' ? policy.true_positives : policy.false_positives} / {policy.total}
-                                </TableCell>
+                        {paginated.map(p => (
+                            <TableRow key={p.policy_name}>
+                                <TableCell className="font-medium text-xs max-w-md truncate">{p.policy_name}</TableCell>
+                                <TableCell><div className="flex items-center gap-2"><Progress value={type === 'TP' ? p.score : p.fpr} className="h-2" /><span className="text-xs">{(type === 'TP' ? p.score : p.fpr).toFixed(0)}%</span></div></TableCell>
+                                <TableCell className="text-right text-xs">{type === 'TP' ? p.true_positives : p.fps} / {p.total}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
             </div>
-            <div className="flex items-center justify-between mt-4">
-                <div className="flex items-center gap-2">
-                    <Button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} variant="outline" size="sm">Previous</Button>
-                    <Button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages || paginatedData.length === 0} variant="outline" size="sm">Next</Button>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                    Page {currentPage} of {totalPages} | Total: {sortedAndFilteredData.length} records
-                </div>
+            <div className="flex justify-between items-center text-xs text-muted-foreground">
+                <div className="flex gap-2"><Button size="sm" variant="outline" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</Button><Button size="sm" variant="outline" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Next</Button></div>
+                <span>Page {page} of {totalPages} | {filtered.length} records</span>
             </div>
         </div>
     );
 };
 
-type TriggeredSortableColumn = keyof TriggeredPolicyDetail;
+const DailyTrendChart: FC<{ data: any[] }> = ({ data }) => (
+    <ChartContainer config={{ count: { label: "Unique Policies", color: "hsl(var(--chart-1))" } }} className="h-64 w-full">
+        <ResponsiveContainer><RechartsLineChart data={data}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={s => new Date(s).toLocaleDateString([], {month:'short', day:'numeric'})} /><YAxis allowDecimals={false} /><RechartsTooltip content={<ChartTooltipContent />} /><Line type="monotone" dataKey="count" stroke="hsl(var(--chart-1))" dot={false} /></RechartsLineChart></ResponsiveContainer>
+    </ChartContainer>
+);
 
-const TriggeredPoliciesTable: FC<{ data: TriggeredPolicyDetail[] }> = ({ data }) => {
-    const [sortConfig, setSortConfig] = useState<{ key: TriggeredSortableColumn, direction: 'asc' | 'desc' } | null>({ key: 'last_triggered_at', direction: 'desc' });
-    const handleSort = (key: TriggeredSortableColumn) => {
-        setSortConfig(prev => ({ key, direction: prev?.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
-    };
-    const getSortIcon = (key: TriggeredSortableColumn) => (sortConfig?.key === key) ? <ArrowUpDown className="ml-2 h-4 w-4" /> : <ArrowUpDown className="ml-2 h-4 w-4 opacity-30" />;
-    
-    const sortedData = useMemo(() => {
-        if (!sortConfig) return data;
-        return [...data].sort((a, b) => {
-            if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
-            return 0;
-        });
-    }, [data, sortConfig]);
+const PolicyCoverageChart: FC<{ data: any[] }> = ({ data }) => (
+    <ChartContainer config={{}} className="h-64 w-full">
+        <ResponsiveContainer><RechartsPieChart><Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5}>{data.map((e, i) => <Cell key={i} fill={e.fill} />)}</Pie><RechartsTooltip /><Legend /></RechartsPieChart></ResponsiveContainer>
+    </ChartContainer>
+);
 
-    return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead><Button variant="ghost" onClick={() => handleSort('policy_name')}>Policy Name {getSortIcon('policy_name')}</Button></TableHead>
-                    <TableHead><Button variant="ghost" onClick={() => handleSort('description')}>Description {getSortIcon('description')}</Button></TableHead>
-                    <TableHead><Button variant="ghost" onClick={() => handleSort('last_triggered_at')}>Last Triggered {getSortIcon('last_triggered_at')}</Button></TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {sortedData.map(p => (
-                    <TableRow key={p.policy_name}>
-                        <TableCell className="text-xs">{p.policy_name}</TableCell>
-                        <TableCell className="text-xs">{p.description}</TableCell>
-                        <TableCell suppressHydrationWarning className="text-xs">{new Date(p.last_triggered_at).toLocaleString()}</TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
-    );
-};
+const OverallEffectivenessChart: FC<{ data: any[] }> = ({ data }) => (
+    <ChartContainer config={{ score: { label: "Effectiveness %", color: "hsl(var(--chart-3))" } }} className="h-64 w-full">
+        <ResponsiveContainer><AreaChart data={data}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={s => new Date(s).toLocaleDateString([], {month:'short', day:'numeric'})} /><YAxis domain={[0, 100]} unit="%" /><RechartsTooltip content={<ChartTooltipContent />} /><Area type="monotone" dataKey="score" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" fillOpacity={0.2} /></AreaChart></ResponsiveContainer>
+    </ChartContainer>
+);
 
-type NotTriggeredSortableColumn = keyof NotTriggeredPolicyDetail;
+const AlertNoiseReductionChart: FC<{ data: any[] }> = ({ data }) => (
+    <ChartContainer config={{}} className="h-64 w-full">
+        <ResponsiveContainer><RechartsLineChart data={data}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="date" tickFormatter={s => new Date(s).toLocaleDateString([], {month:'short', day:'numeric'})} /><YAxis /><RechartsTooltip content={<ChartTooltipContent />} /><Legend /><Line type="monotone" dataKey="True Positives" stroke="hsl(var(--chart-1))" dot={false} /><Line type="monotone" dataKey="False Positives" stroke="hsl(var(--chart-2))" dot={false} /></RechartsLineChart></ResponsiveContainer>
+    </ChartContainer>
+);
 
-const NotTriggeredPoliciesTable: FC<{ data: NotTriggeredPolicyDetail[] }> = ({ data }) => {
-    const [sortConfig, setSortConfig] = useState<{ key: NotTriggeredSortableColumn, direction: 'asc' | 'desc' } | null>({ key: 'policy_name', direction: 'asc' });
-    const handleSort = (key: NotTriggeredSortableColumn) => {
-        setSortConfig(prev => ({ key, direction: prev?.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
-    };
-    const getSortIcon = (key: NotTriggeredSortableColumn) => (sortConfig?.key === key) ? <ArrowUpDown className="ml-2 h-4 w-4" /> : <ArrowUpDown className="ml-2 h-4 w-4 opacity-30" />;
+const TriggeredTable = ({ data }: { data: TriggeredPolicyDetail[] }) => (
+    <Table><TableHeader><TableRow><TableHead>Policy</TableHead><TableHead>Description</TableHead><TableHead>Last Triggered</TableHead></TableRow></TableHeader>
+    <TableBody>{data.map(p => <TableRow key={p.policy_name}><TableCell className="text-xs font-bold">{p.policy_name}</TableCell><TableCell className="text-xs">{p.description}</TableCell><TableCell className="text-[10px]">{new Date(p.last_triggered_at).toLocaleString()}</TableCell></TableRow>)}</TableBody></Table>
+);
 
-    const sortedData = useMemo(() => {
-        if (!sortConfig) return data;
-        return [...data].sort((a, b) => {
-            if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
-            return 0;
-        });
-    }, [data, sortConfig]);
-
-    return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead><Button variant="ghost" onClick={() => handleSort('policy_name')}>Policy Name {getSortIcon('policy_name')}</Button></TableHead>
-                    <TableHead><Button variant="ghost" onClick={() => handleSort('description')}>Description {getSortIcon('description')}</Button></TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {sortedData.map(p => (
-                    <TableRow key={p.policy_name}>
-                        <TableCell className="text-xs">{p.policy_name}</TableCell>
-                        <TableCell className="text-xs">{p.description}</TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
-    )
-};
-
-const OverallEffectivenessChart: FC<{data: EffectivenessTrendPoint[]}> = ({ data }) => {
-    if (data.length === 0) return <NoDataPlaceholder />;
-    return (
-        <ChartContainer config={{ score: { label: "Effectiveness %", color: "hsl(var(--chart-1))" } }} className="min-h-[250px] w-full">
-            <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tickFormatter={(str) => new Date(str).toLocaleDateString('en-US', {month:'short', day:'numeric'})} />
-                    <YAxis domain={[0, 100]} unit="%" />
-                    <RechartsTooltip content={<ChartTooltipContent />} />
-                    <defs>
-                        <linearGradient id="fillScore" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0.1}/>
-                        </linearGradient>
-                    </defs>
-                    <Area type="monotone" dataKey="score" stroke="hsl(var(--chart-1))" strokeWidth={2} fill="url(#fillScore)" />
-                </AreaChart>
-            </ResponsiveContainer>
-        </ChartContainer>
-    );
-};
-
-const AlertNoiseReductionChart: FC<{data: AlertTrendPoint[]}> = ({ data }) => {
-    if (data.length === 0) return <NoDataPlaceholder />;
-    return (
-        <ChartContainer config={{ 'True Positives': { label: "True Positives", color: "hsl(var(--chart-1))" }, 'False Positives': { label: "False Positives", color: "hsl(var(--chart-2))" } }} className="min-h-[250px] w-full">
-            <ResponsiveContainer width="100%" height={250}>
-                <RechartsLineChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tickFormatter={(str) => new Date(str).toLocaleDateString('en-US', {month:'short', day:'numeric'})} />
-                    <YAxis allowDecimals={false} />
-                    <RechartsTooltip content={<ChartTooltipContent />} />
-                    <Legend />
-                    <Line type="monotone" dataKey="True Positives" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="False Positives" stroke="hsl(var(--chart-2))" strokeWidth={2} dot={false} />
-                </RechartsLineChart>
-            </ResponsiveContainer>
-        </ChartContainer>
-    );
-};
-
-const NoDataPlaceholder = () => (
-    <div className="flex h-full min-h-[250px] items-center justify-center rounded-lg border-2 border-dashed border-muted p-4 text-center">
-        <div className="flex flex-col items-center gap-2">
-            <AlertCircle className="h-8 w-8 text-muted-foreground" />
-            <p className="text-muted-foreground">Not enough data to display for the selected time range.</p>
-        </div>
-    </div>
+const InactiveTable = ({ data }: { data: NotTriggeredPolicyDetail[] }) => (
+    <Table><TableHeader><TableRow><TableHead>Policy</TableHead><TableHead>Description</TableHead></TableRow></TableHeader>
+    <TableBody>{data.map(p => <TableRow key={p.policy_name}><TableCell className="text-xs font-bold">{p.policy_name}</TableCell><TableCell className="text-xs">{p.description}</TableCell></TableRow>)}</TableBody></Table>
 );

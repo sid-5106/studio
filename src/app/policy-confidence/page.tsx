@@ -15,7 +15,7 @@ export default async function PolicyConfidencePage() {
               <div>
                 <h1 className="text-3xl font-bold tracking-tight">Policy Confidence</h1>
                 <p className="text-muted-foreground">
-                  Identify policies and alerts where the AI's classification confidence is below 75%.
+                  Monitor policies with alerts where AI classification confidence is below 75%.
                 </p>
               </div>
               <div className="flex items-center gap-4">

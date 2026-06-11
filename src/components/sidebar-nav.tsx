@@ -24,11 +24,7 @@ export function SidebarNav() {
   const pathname = usePathname();
 
   const isItemVisible = (item: typeof navItems[number]) => {
-    // You can add logic here to determine if an item should be visible
-    // For now, we will hide 'AI Usage' as a demonstration
-    if (item.href === '/ai-usage') {
-      return false;
-    }
+    if (item.href === '/ai-usage') return false;
     return true;
   };
 
