@@ -1,4 +1,3 @@
-
 'use client';
 
 export const dynamic = 'force-dynamic';
@@ -135,15 +134,26 @@ export default function PolicyInsightsPage() {
             <Card><CardHeader><CardTitle>Coverage</CardTitle></CardHeader><CardContent>{loading ? <Skeleton className="h-64 w-full" /> : <PolicyCoverageChart data={coverageData} />}</CardContent></Card>
           </div>
 
-          <div className="flex flex-col gap-6">
+          {/* Full-width vertical blocks for TP and FP Rates */}
+          <div className="space-y-6">
             <Card className="w-full">
-              <CardHeader><CardTitle>Policy True Positive Rate</CardTitle><CardDescription>Most effective rules identifying real threats.</CardDescription></CardHeader>
-              <CardContent>{loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="TP" />}</CardContent>
+              <CardHeader>
+                <CardTitle>Policy True Positive Rate</CardTitle>
+                <CardDescription>Most effective rules identifying real threats.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="TP" />}
+              </CardContent>
             </Card>
 
             <Card className="w-full">
-              <CardHeader><CardTitle>Policy False Positive Rate</CardTitle><CardDescription>Rules generating the most noise.</CardDescription></CardHeader>
-              <CardContent>{loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="FP" />}</CardContent>
+              <CardHeader>
+                <CardTitle>Policy False Positive Rate</CardTitle>
+                <CardDescription>Rules generating the most noise.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading ? <Skeleton className="h-[400px] w-full" /> : <EffectivenessTable data={data?.effectivenessScores || []} type="FP" />}
+              </CardContent>
             </Card>
           </div>
 
@@ -187,24 +197,29 @@ const EffectivenessTable: FC<{ data: PolicyEffectivenessScore[], type: 'TP' | 'F
 
     return (
         <div className="space-y-4">
-            <Input placeholder="Search..." value={filter} onChange={e => {setFilter(e.target.value); setPage(1);}} className="max-w-sm" />
-            <div className="border rounded-md">
+            <Input placeholder="Search policies..." value={filter} onChange={e => {setFilter(e.target.value); setPage(1);}} className="max-w-sm" />
+            <div className="border rounded-md overflow-hidden">
                 <Table>
-                    <TableHeader><TableRow><TableHead>Policy Name</TableHead><TableHead>{type === 'TP' ? 'TP Rate' : 'FP Rate'}</TableHead><TableHead className="text-right">Breakdown</TableHead></TableRow></TableHeader>
+                    <TableHeader className="bg-muted/50"><TableRow><TableHead>Policy Name</TableHead><TableHead>{type === 'TP' ? 'TP Rate' : 'FP Rate'}</TableHead><TableHead className="text-right">Alert Breakdown</TableHead></TableRow></TableHeader>
                     <TableBody>
                         {paginated.map(p => (
                             <TableRow key={p.policy_name}>
-                                <TableCell className="font-medium text-xs max-w-md truncate">{p.policy_name}</TableCell>
-                                <TableCell><div className="flex items-center gap-2"><Progress value={type === 'TP' ? p.score : p.fpr} className="h-2" /><span className="text-xs">{(type === 'TP' ? p.score : p.fpr).toFixed(0)}%</span></div></TableCell>
-                                <TableCell className="text-right text-xs">{type === 'TP' ? p.true_positives : p.fps} / {p.total}</TableCell>
+                                <TableCell className="font-medium text-xs">{p.policy_name}</TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                      <Progress value={type === 'TP' ? p.score : p.fpr} className="h-2 flex-1" />
+                                      <span className="text-xs font-bold w-10">{(type === 'TP' ? p.score : p.fpr).toFixed(0)}%</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right text-xs font-mono">{type === 'TP' ? p.true_positives : p.fps} / {p.total}</TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
                 </Table>
             </div>
             <div className="flex justify-between items-center text-xs text-muted-foreground">
-                <div className="flex gap-2"><Button size="sm" variant="outline" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Prev</Button><Button size="sm" variant="outline" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Next</Button></div>
-                <span>Page {page} of {totalPages} | {filtered.length} records</span>
+                <div className="flex gap-2"><Button size="sm" variant="outline" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Previous</Button><Button size="sm" variant="outline" disabled={page === totalPages || filtered.length === 0} onClick={() => setPage(p => p + 1)}>Next</Button></div>
+                <span>Page {page} of {Math.max(1, totalPages)} | {filtered.length} matching policies</span>
             </div>
         </div>
     );

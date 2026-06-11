@@ -1,4 +1,3 @@
-
 'use server';
 
 import { supabaseAdmin } from '@/lib/supabase';
@@ -190,6 +189,7 @@ export async function checkSupabaseConnection() {
 
 export async function getAlerts(): Promise<Alert[]> {
   noStore();
+  const { startDate, endDate } = getDateFilter(0); // All time by default for general alerts page
   return fetchAllWithBatching<any>(
     supabaseAdmin.from('alerts_processed').select(`
       Title, policy_name, classification, classification_reason, duplicate_count, risk_score,
@@ -197,7 +197,7 @@ export async function getAlerts(): Promise<Alert[]> {
       fingerprint, behavior, SOP_Instructions, behavior_reason, Feedback_L1,
       evidence_createdDateTime, alert_upload_time, next_time(whatNotToDoNextTime)
     `),
-    'first_seen_at', null, endOfDay(new Date())
+    'first_seen_at', startDate, endDate
   ).then(data => data.map(v => ({
     ...v,
     whatNotToDoNextTime: v.next_time?.whatNotToDoNextTime ?? ''
@@ -400,9 +400,10 @@ export async function getTopTriggeredPolicies(timeRange: number, limit: number =
 
 export async function getLowConfidenceAlerts(): Promise<Alert[]> {
   noStore();
+  const { startDate, endDate } = getDateFilter(0);
   return fetchAllWithBatching<any>(
     supabaseAdmin.from('alerts_processed').select('Title, policy_name, classification, classification_reason, first_seen_at, "AI-confidence", fingerprint').lt('AI-confidence', 75),
-    'first_seen_at', null, endOfDay(new Date())
+    'first_seen_at', startDate, endDate
   ).then(data => data.map(v => ({
     Title: v.Title,
     policy_name: v.policy_name,
@@ -478,9 +479,10 @@ export async function getAlertsBreakdownSummaryForPieChart(): Promise<Classifica
 
 export async function getUserBehaviorSummary(): Promise<UserBehaviorPoint[]> {
   noStore();
+  const { startDate, endDate } = getDateFilter(0);
   const alerts = await fetchAllWithBatching<{ behavior: string }>(
     supabaseAdmin.from('alerts_processed').select('behavior').eq('classification', 'True_Positive'),
-    'first_seen_at', null, endOfDay(new Date())
+    'first_seen_at', startDate, endDate
   );
 
   const counts = alerts.reduce((acc, a) => {
@@ -547,9 +549,10 @@ export async function updateAlertFeedback(fingerprint: string, feedback: string)
 
 export async function getPromptLibraryInsights(): Promise<PromptInsight[]> {
   noStore();
+  const { startDate, endDate } = getDateFilter(0);
   const data = await fetchAllWithBatching<any>(
     supabaseAdmin.from('alerts_processed').select('policy_name, Title, classification_reason, first_seen_at').eq('feedback_referral', 'yes'),
-    'first_seen_at', null, endOfDay(new Date())
+    'first_seen_at', startDate, endDate
   );
   return data || [];
 }
@@ -559,6 +562,22 @@ export async function getTotalRiskyUsersCount(): Promise<number> {
   if (count !== null) return count;
   const tps = await getTruePositiveAlerts();
   return new Set(tps.map(a => a.email_sender).filter(Boolean)).size;
+}
+
+export async function getHighRiskUsersCount(): Promise<number> {
+  const details = await getRiskyUsersDetails();
+  return details.filter(u => u.risk_level === 'High').length;
+}
+
+export async function getNewRiskyUsersCount(): Promise<number> {
+  const details = await getRiskyUsersDetails();
+  const sevenDaysAgo = subDays(new Date(), 7);
+  return details.filter(u => u.first_violation !== 'N/A' && new Date(u.first_violation) >= sevenDaysAgo).length;
+}
+
+export async function getEscalatingUsersCount(): Promise<number> {
+  const details = await getRiskyUsersDetails();
+  return details.filter(u => u.trend === 'Increasing').length;
 }
 
 export async function getRiskyUsersDetails(): Promise<RiskyUserDetail[]> {
@@ -682,8 +701,9 @@ export async function getAIEfficiencyData(timeRange: number): Promise<AIEfficien
 
 export async function getAIAnalyticsData(): Promise<AIAnalyticsData[]> {
   noStore();
+  const { startDate, endDate } = getDateFilter(0);
   return fetchAllWithBatching<any>(
     supabaseAdmin.from('alerts_processed').select('Title, policy_name, total_tokens, cost_estimation, classification, first_seen_at, email_sender'),
-    'first_seen_at', null, endOfDay(new Date())
+    'first_seen_at', startDate, endDate
   );
 }
